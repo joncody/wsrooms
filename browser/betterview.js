@@ -105,7 +105,7 @@
                 throw new RangeError('offset is negative');
             }
             if (typeof length !== 'number') {
-                throw new TypeError('offset is not a number');
+                throw new TypeError('length is not a number');
             }
             if (length < 0) {
                 throw new RangeError('length is negative');
