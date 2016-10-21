@@ -94,7 +94,7 @@
             delete rooms[room];
         };
 
-        room.message = function (packet) {
+        room.handleMessage = function (packet) {
             var index;
 
             switch (packet.event) {
@@ -183,7 +183,7 @@
             if (packet.room !== 'root' && !rooms.hasOwnProperty(packet.room)) {
                 throw new Error('room does not exist');
             }
-            rooms[packet.room].message(packet);
+            rooms[packet.room].handleMessage(packet);
         };
 
         socket.onclose = function (e) {
