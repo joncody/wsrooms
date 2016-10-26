@@ -29,7 +29,6 @@
         var room = emitter(),
             store = {
                 open: false,
-                name: name,
                 id: '',
                 members: []
             },
@@ -66,8 +65,8 @@
             if (typeof dst !== 'string') {
                 dst = '';
             }
-            data = betterview(store.name.length + event.length + dst.length + src.length + (payload.byteLength || payload.length || 0) + 20);
-            data.writeUint32(store.name.length).writeString(store.name);
+            data = betterview(name.length + event.length + dst.length + src.length + (payload.byteLength || payload.length || 0) + 20);
+            data.writeUint32(name.length).writeString(name);
             data.writeUint32(event.length).writeString(event)
             data.writeUint32(dst.length).writeString(dst);
             data.writeUint32(src.length).writeString(src);
@@ -99,7 +98,7 @@
             if (store.open === false) {
                 throw new Error('socket is closed');
             }
-            data = betterview(store.name.length + 'leave'.length + store.id.length + 20);
+            data = betterview(name.length + 'leave'.length + store.id.length + 20);
             data.writeUint32(name.length).writeString(name);
             data.writeUint32('leave'.length).writeString('leave');
             data.writeUint32(0);
@@ -163,7 +162,7 @@
         };
 
         room.name = function () {
-            return store.name;
+            return name;
         };
 
         room.members = function () {
