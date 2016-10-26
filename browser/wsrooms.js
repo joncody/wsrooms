@@ -22,7 +22,8 @@
     }
 
     var rooms = {},
-        socket;
+        socket,
+        reserved = ['open', 'close', 'joined', 'join', 'leave', 'left'];
 
     function getRoom(name) {
         var room = emitter(),
@@ -31,7 +32,8 @@
                 name: name,
                 id: '',
                 members: []
-            };
+            },
+            join_data;
 
         if (typeof name !== 'string') {
             throw new TypeError('name is not a string');
@@ -40,12 +42,23 @@
             return rooms[name];
         }
 
+        room.on('close', function () {
+            store.open = false;
+            delete rooms[name];
+        });
+
         room.send = function (event, payload, dst) {
             var src = store.id,
                 data;
 
+            if (store.open === false) {
+                throw new Error('socket is closed');
+            }
             if (typeof event !== 'string') {
                 throw new TypeError('event is not a string');
+            }
+            if (reserved.indexOf(event) !== -1) {
+                throw new TypeError('cannot send event with name ' + event);
             }
             if (payload === undefined) {
                 payload = '';
@@ -54,14 +67,10 @@
                 dst = '';
             }
             data = betterview(store.name.length + event.length + dst.length + src.length + (payload.byteLength || payload.length || 0) + 20);
-            data.writeUint32(store.name.length);
-            data.writeString(store.name);
-            data.writeUint32(event.length);
-            data.writeString(event);
-            data.writeUint32(dst.length);
-            data.writeString(dst);
-            data.writeUint32(src.length);
-            data.writeString(src);
+            data.writeUint32(store.name.length).writeString(store.name);
+            data.writeUint32(event.length).writeString(event)
+            data.writeUint32(dst.length).writeString(dst);
+            data.writeUint32(src.length).writeString(src);
             data.writeUint32(payload.byteLength || payload.length || 0);
             if (typeof payload === 'string') {
                 data.writeString(payload);
@@ -79,23 +88,29 @@
                 throw new TypeError('roomname is not a string');
             }
             if (roomname === 'root') {
-                throw new Error('cannot join the root room');
+                throw new Error('cannot join the root room - it is joined by default');
             }
             return rooms.hasOwnProperty(roomname) ? rooms[roomname] : getRoom(roomname);
         };
 
         room.leave = function () {
-            room.send('leave');
+            var data;
+
+            if (store.open === false) {
+                throw new Error('socket is closed');
+            }
+            data = betterview(store.name.length + 'leave'.length + store.id.length + 20);
+            data.writeUint32(name.length).writeString(name);
+            data.writeUint32('leave'.length).writeString('leave');
+            data.writeUint32(0);
+            data.writeUint32(store.id.length).writeString(store.id);
+            data.writeUint32(0);
+            socket.send(data.seek(0).getBytes());
         };
 
-        room.close = function () {
-            store.open = false;
-            room.emit('close');
-            delete rooms[room];
-        };
-
-        room.handleMessage = function (packet) {
-            var index;
+        room.parse = function (packet) {
+            var index,
+                data;
 
             switch (packet.event) {
             case 'join':
@@ -103,7 +118,13 @@
                 store.members = JSON.parse(betterview.getStringFromCodes(packet.payload));
                 store.open = true;
                 room.emit('open');
-                room.send('joined', packet.src);
+                data = betterview(name.length + 'joined'.length + store.id.length + packet.src.length + 20);
+                data.writeUint32(name.length).writeString(name);
+                data.writeUint32('joined'.length).writeString('joined');
+                data.writeUint32(0);
+                data.writeUint32(store.id.length).writeString(store.id);
+                data.writeUint32(packet.src.length).writeString(packet.src);
+                socket.send(data.seek(0).getBytes());
                 break;
             case 'joined':
                 packet.payload = betterview.getStringFromCodes(packet.payload);
@@ -114,8 +135,14 @@
                 }
                 break;
             case 'leave':
-                room.close();
-                room.send('left', store.id);
+                data = betterview(name.length + 'left'.length + store.id.length + 20);
+                data.writeUint32(name.length).writeString(name);
+                data.writeUint32('left'.length).writeString('left');
+                data.writeUint32(0);
+                data.writeUint32(store.id.length).writeString(store.id);
+                data.writeUint32(0);
+                socket.send(data.seek(0).getBytes());
+                room.emit('close');
                 break;
             case 'left':
                 packet.payload = betterview.getStringFromCodes(packet.payload);
@@ -131,32 +158,32 @@
             }
         };
 
-        function purge() {
-            Object.keys(rooms).forEach(function (name) {
-                if (name !== 'root') {
-                    rooms[name].close();
-                }
-            });
-        }
+        room.open = function () {
+            return store.open;
+        };
 
-        room.getName = function () {
+        room.name = function () {
             return store.name;
         };
 
-        room.getMembers = function () {
+        room.members = function () {
             return store.members;
         };
 
-        room.getId = function () {
+        room.id = function () {
             return store.id;
         };
 
         rooms[name] = room;
 
-        if (store.name !== 'root') {
-            room.send('join');
-        } else {
-            room.purge = purge;
+        if (name !== 'root') {
+            join_data = betterview(name.length + 'join'.length + store.id.length + 20);
+            join_data.writeUint32(name.length).writeString(name);
+            join_data.writeUint32('join'.length).writeString('join');
+            join_data.writeUint32(0);
+            join_data.writeUint32(store.id.length).writeString(store.id);
+            join_data.writeUint32(0);
+            socket.send(join_data.seek(0).getBytes());
         }
 
         return Object.freeze(room);
@@ -180,24 +207,20 @@
             packet.dst = data.getString(data.getUint32());
             packet.src = data.getString(data.getUint32());
             packet.payload = data.getBytes(data.getUint32());
-            if (packet.room !== 'root' && !rooms.hasOwnProperty(packet.room)) {
+            if (!rooms.hasOwnProperty(packet.room)) {
                 throw new Error('room does not exist');
             }
-            rooms[packet.room].handleMessage(packet);
+            rooms[packet.room].parse(packet);
         };
 
-        socket.onclose = function (e) {
+        socket.onclose = function () {
             Object.keys(rooms).forEach(function (name) {
-                rooms[name].close();
+                rooms[name].emit('close');
             });
         };
 
         socket.onerror = function (err) {
             throw err;
-        };
-
-        socket.onopen = function () {
-            root.send('join');
         };
 
         return root;

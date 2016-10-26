@@ -20,7 +20,6 @@ import (
 	"github.com/chuckpreslar/emission"
 	"github.com/gorilla/websocket"
 	"github.com/satori/go.uuid"
-	"io"
 	"log"
 	"net/http"
 	"time"
@@ -86,9 +85,8 @@ func (c *Conn) ReadPump() {
 	for {
 		_, data, err := c.Socket.ReadMessage()
 		if err != nil {
-			if err != io.EOF {
-				log.Println("error parsing incoming message:", err)
-			} else {
+			log.Println(err)
+			if _, ok := err.(*websocket.CloseError); ok {
 				for name, room := range c.Rooms {
 					payload := &Message{
 						RoomLength:    len(name),

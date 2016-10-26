@@ -64,7 +64,7 @@
             codes = [];
         }
         Array.prototype.slice.call(codes).forEach(function (character) {
-            string = string + String.fromCharCode(character);
+            string += String.fromCharCode(character);
         });
         return string;
     }
@@ -136,12 +136,8 @@
         }
 
         function getBytes(length, offset) {
-            offset = offset === undefined
-                ? store.offset
-                : offset;
-            length = length === undefined
-                ? store.view.byteLength - offset
-                : length;
+            offset = offset === undefined ? store.offset : offset;
+            length = length === undefined ? store.view.byteLength - offset : length;
             checkBounds(offset, length);
             store.offset = offset + length;
             return toUint8(store.view.buffer.slice(offset, offset + length));
@@ -151,9 +147,7 @@
             var converted_bytes = toUint8(bytes),
                 length = converted_bytes.byteLength || converted_bytes.length || 0;
 
-            offset = offset === undefined
-                ? store.offset
-                : offset;
+            offset = offset === undefined ? store.offset : offset;
             checkBounds(offset, length);
             store.offset = offset + length;
             toUint8(store.view.buffer).set(converted_bytes, offset);
@@ -196,9 +190,7 @@
 
         function getNumber(type, bytes) {
             return function (offset) {
-                offset = offset === undefined
-                    ? store.offset
-                    : offset;
+                offset = offset === undefined ? store.offset : offset;
                 checkBounds(offset, bytes);
                 store.offset = offset + bytes;
                 return store.view['get' + type](offset);
@@ -207,9 +199,7 @@
 
         function setNumber(type, bytes) {
             return function (offset, value) {
-                offset = offset === undefined
-                    ? store.offset
-                    : offset;
+                offset = offset === undefined ? store.offset : offset;
                 checkBounds(offset, bytes);
                 store.offset = offset + bytes;
                 store.view['set' + type](offset, value);
