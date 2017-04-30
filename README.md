@@ -3,8 +3,8 @@ wsrooms
 
 A [Gorilla WebSocket](https://github.com/gorilla/websocket) implementation with support for rooms/channels.
 
-##API
-###Conn
+## API
+### Conn
 - Conn.Socket
 - Conn.Id
 - Conn.Send
@@ -17,7 +17,7 @@ A [Gorilla WebSocket](https://github.com/gorilla/websocket) implementation with 
 - Conn.Leave
 - Conn.Emit
 
-###Message
+### Message
 - Message.RoomLength
 - Message.Room
 - Message.EventLength
@@ -29,11 +29,11 @@ A [Gorilla WebSocket](https://github.com/gorilla/websocket) implementation with 
 - Message.PayloadLength
 - Message.Payload
 
-######RoomMessage
+###### RoomMessage
 - RoomMessage.Sender
 - RoomMessage.Data
 
-###Room
+### Room
 - Room.Application
 - Room.Name
 - Room.Members
