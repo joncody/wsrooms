@@ -4,6 +4,7 @@ import (
 	"github.com/joncody/wsrooms"
 	"net/http"
 	"html/template"
+	"log"
 )
 
 var index = template.Must(template.ParseFiles("index.html"))
@@ -21,6 +22,9 @@ func staticHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	wsrooms.Emitter.On("hello", func (c *wsrooms.Conn, data []byte, msg *wsrooms.Message) {
+		log.Println(msg)
+	})
 	http.HandleFunc("/", handler)
 	http.HandleFunc("/static/", staticHandler)
 	http.HandleFunc("/ws", wsrooms.SocketHandler)
