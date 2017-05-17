@@ -15,32 +15,32 @@
 //    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (function (global) {
-    'use strict';
+    "use strict";
 
     var number_types_and_bytes = {
-            'Int8': 1,
-            'Uint8': 1,
-            'Int16': 2,
-            'Uint16': 2,
-            'Int32': 4,
-            'Uint32': 4,
-            'Float32': 4,
-            'Float64': 8
-        };
+        "Int8": 1,
+        "Uint8": 1,
+        "Int16": 2,
+        "Uint16": 2,
+        "Int32": 4,
+        "Uint32": 4,
+        "Float32": 4,
+        "Float64": 8
+    };
 
     function isTypedArray(array) {
         var array_types = [
-                'Int8Array',
-                'Uint8Array',
-                'Uint8ClampedArray',
-                'Int16Array',
-                'Uint16Array',
-                'Int32Array',
-                'Uint32Array',
-                'Float32Array',
-                'Float64Array'
-            ],
-            type = Object.prototype.toString.call(array).replace(/\[object\s(\w+)\]/, '$1');
+            "Int8Array",
+            "Uint8Array",
+            "Uint8ClampedArray",
+            "Int16Array",
+            "Uint16Array",
+            "Int32Array",
+            "Uint32Array",
+            "Float32Array",
+            "Float64Array"
+        ];
+        var type = Object.prototype.toString.call(array).replace(/\[object\s(\w+)\]/, "$1");
 
         return array_types.indexOf(type) > -1;
     }
@@ -48,17 +48,17 @@
     function getCodesFromString(string) {
         var codes = [];
 
-        if (typeof string !== 'string') {
-            string = '';
+        if (typeof string !== "string") {
+            string = "";
         }
-        string.split('').forEach(function (character) {
+        string.split("").forEach(function (character) {
             codes.push(character.charCodeAt(0));
         });
         return codes;
     }
 
     function getStringFromCodes(codes) {
-        var string = '';
+        var string = "";
 
         if (codes === undefined || codes === null) {
             codes = [];
@@ -72,9 +72,11 @@
     function toUint8(array) {
         if (array === undefined || array === null) {
             array = 0;
-        } else if (typeof array === 'boolean') {
-            array = array === true ? [1] : [0];
-        } else if (typeof array === 'string') {
+        } else if (typeof array === "boolean") {
+            array = array === true
+                ? [1]
+                : [0];
+        } else if (typeof array === "string") {
             array = getCodesFromString(array);
         }
         return new Uint8Array(array);
@@ -90,28 +92,28 @@
     }
 
     function betterview(buffer, offset, length) {
-        var better = {},
-            store = {};
+        var better = {};
+        var store = {};
 
         store.buffer = toBuffer(buffer);
         store.view = new DataView(store.buffer, offset, length);
         store.offset = 0;
 
-        function checkBounds(offset, length) {
-            if (typeof offset !== 'number') {
-                throw new TypeError('offset is not a number');
+        function checkBounds(offset, len) {
+            if (typeof offset !== "number") {
+                throw new TypeError("offset is not a number");
             }
             if (offset < 0) {
-                throw new RangeError('offset is negative');
+                throw new RangeError("offset is negative");
             }
-            if (typeof length !== 'number') {
-                throw new TypeError('length is not a number');
+            if (typeof len !== "number") {
+                throw new TypeError("len is not a number");
             }
-            if (length < 0) {
-                throw new RangeError('length is negative');
+            if (len < 0) {
+                throw new RangeError("len is negative");
             }
-            if (offset + length > store.view.byteLength) {
-                throw new RangeError('bounds exceeded');
+            if (offset + len > store.view.byteLength) {
+                throw new RangeError("bounds exceeded");
             }
         }
 
@@ -135,37 +137,43 @@
             return store.view.buffer.slice(start, end);
         }
 
-        function getBytes(length, offset) {
-            offset = offset === undefined ? store.offset : offset;
-            length = length === undefined ? store.view.byteLength - offset : length;
-            checkBounds(offset, length);
-            store.offset = offset + length;
-            return toUint8(store.view.buffer.slice(offset, offset + length));
+        function getBytes(len, offset) {
+            offset = offset === undefined
+                ? store.offset
+                : offset;
+            len = len === undefined
+                ? store.view.byteLength - offset
+                : len;
+            checkBounds(offset, len);
+            store.offset = offset + len;
+            return toUint8(store.view.buffer.slice(offset, offset + len));
         }
 
         function setBytes(offset, bytes) {
-            var converted_bytes = toUint8(bytes),
-                length = converted_bytes.byteLength || converted_bytes.length || 0;
+            var converted_bytes = toUint8(bytes);
+            var len = converted_bytes.byteLength || converted_bytes.length || 0;
 
-            offset = offset === undefined ? store.offset : offset;
-            checkBounds(offset, length);
-            store.offset = offset + length;
+            offset = offset === undefined
+                ? store.offset
+                : offset;
+            checkBounds(offset, len);
+            store.offset = offset + len;
             toUint8(store.view.buffer).set(converted_bytes, offset);
             return better;
         }
 
         function writeBytes(bytes) {
-            var converted_bytes = toUint8(bytes),
-                length = converted_bytes.byteLength || converted_bytes.length || 0;
+            var converted_bytes = toUint8(bytes);
+            var len = converted_bytes.byteLength || converted_bytes.length || 0;
 
-            checkBounds(store.offset, length);
+            checkBounds(store.offset, len);
             toUint8(store.view.buffer).set(converted_bytes, store.offset);
-            store.offset = store.offset + length;
+            store.offset = store.offset + len;
             return better;
         }
 
-        function getString(length, offset) {
-            return getStringFromCodes(getBytes(length, offset));
+        function getString(len, offset) {
+            return getStringFromCodes(getBytes(len, offset));
         }
 
         function setString(offset, string) {
@@ -190,19 +198,23 @@
 
         function getNumber(type, bytes) {
             return function (offset) {
-                offset = offset === undefined ? store.offset : offset;
+                offset = offset === undefined
+                    ? store.offset
+                    : offset;
                 checkBounds(offset, bytes);
                 store.offset = offset + bytes;
-                return store.view['get' + type](offset);
+                return store.view["get" + type](offset);
             };
         }
 
         function setNumber(type, bytes) {
             return function (offset, value) {
-                offset = offset === undefined ? store.offset : offset;
+                offset = offset === undefined
+                    ? store.offset
+                    : offset;
                 checkBounds(offset, bytes);
                 store.offset = offset + bytes;
-                store.view['set' + type](offset, value);
+                store.view["set" + type](offset, value);
                 return better;
             };
         }
@@ -210,12 +222,13 @@
         function writeNumber(type, bytes) {
             return function (value) {
                 checkBounds(store.offset, bytes);
-                store.view['set' + type](store.offset, value);
+                store.view["set" + type](store.offset, value);
                 store.offset = store.offset + bytes;
                 return better;
             };
         }
 
+        better.betterview = true;
         better.tell = tell;
         better.seek = seek;
         better.skip = skip;
@@ -233,9 +246,9 @@
         Object.keys(number_types_and_bytes).forEach(function (type) {
             var bytes = number_types_and_bytes[type];
 
-            better['get' + type] = getNumber(type, bytes);
-            better['set' + type] = setNumber(type, bytes);
-            better['write' + type] = writeNumber(type, bytes);
+            better["get" + type] = getNumber(type, bytes);
+            better["set" + type] = setNumber(type, bytes);
+            better["write" + type] = writeNumber(type, bytes);
         });
 
         return Object.freeze(better);

@@ -15,18 +15,23 @@
 //    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (function (global) {
-    'use strict';
+    "use strict";
 
     function emitter(object) {
-        object = object && typeof object === 'object' ? object : {};
+        object = (object && typeof object === "object")
+            ? object
+            : {};
+        object.emitter = true;
         object.events = {};
 
         object.addListener = function addListener(type, listener) {
             var list = object.events[type];
 
-            if (typeof listener === 'function') {
+            if (typeof listener === "function") {
                 if (object.events.newListener) {
-                    object.emit('newListener', type, typeof listener.listener === 'function' ? listener.listener : listener);
+                    object.emit("newListener", type, typeof listener.listener === "function"
+                        ? listener.listener
+                        : listener);
                 }
                 if (!list) {
                     object.events[type] = [listener];
@@ -43,7 +48,7 @@
                 object.removeListener(type, onetime);
                 listener.apply(object);
             }
-            if (typeof listener === 'function') {
+            if (typeof listener === "function") {
                 onetime.listener = listener;
                 object.on(type, onetime);
             }
@@ -51,10 +56,10 @@
         };
 
         object.removeListener = function removeListener(type, listener) {
-            var list = object.events[type],
-                position = -1;
+            var list = object.events[type];
+            var position = -1;
 
-            if (typeof listener === 'function' && list) {
+            if (typeof listener === "function" && list) {
                 list.some(function (value, index) {
                     if (value === listener || (value.listener && value.listener === listener)) {
                         position = index;
@@ -68,7 +73,7 @@
                         list.splice(position, 1);
                     }
                     if (object.events.removeListener) {
-                        object.emit('removeListener', type, listener);
+                        object.emit("removeListener", type, listener);
                     }
                 }
             }
@@ -87,15 +92,15 @@
                 }
             } else if (!type) {
                 Object.keys(object.events).forEach(function (key) {
-                    if (key !== 'removeListener') {
+                    if (key !== "removeListener") {
                         object.removeAllListeners(key);
                     }
                 });
-                object.removeAllListeners('removeListener');
+                object.removeAllListeners("removeListener");
                 object.events = {};
             } else {
                 list = object.events[type];
-                list.forEach(function (item, index) {
+                list.forEach(function (item) {
                     object.removeListener(type, item);
                 });
                 delete object.events[type];
@@ -106,7 +111,7 @@
         object.listeners = function listeners(type) {
             var list = [];
 
-            if (typeof type === 'string' && object.events[type]) {
+            if (typeof type === "string" && object.events[type]) {
                 list = object.events[type];
             } else {
                 Object.keys(object.events).forEach(function (key) {
@@ -117,9 +122,9 @@
         };
 
         object.emit = function emit(type) {
-            var list = object.events[type],
-                bool = false,
-                args;
+            var list = object.events[type];
+            var bool = false;
+            var args;
 
             if (list) {
                 args = Array.prototype.slice.call(arguments).slice(1);
