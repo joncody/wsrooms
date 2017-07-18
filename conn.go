@@ -50,7 +50,7 @@ var (
 	Emitter     = emission.NewEmitter()
 )
 
-func (c *Conn) HandleData(data []byte, msg *Message) error {
+var HandleData = func(c *Conn, data []byte, msg *Message) error {
 	switch msg.Event {
 	case "join":
 		c.Join(msg.Room)
@@ -105,7 +105,7 @@ func (c *Conn) ReadPump() {
 			}
 			break
 		}
-		if err := c.HandleData(data, BytesToMessage(data)); err != nil {
+		if err := HandleData(c, data, BytesToMessage(data)); err != nil {
 			log.Println(err)
 		}
 	}
