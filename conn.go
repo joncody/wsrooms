@@ -69,7 +69,7 @@ var HandleData = func(c *Conn, data []byte, msg *Message) error {
 	return nil
 }
 
-func (c *Conn) ReadPump() {
+func (c *Conn) readPump() {
 	defer func() {
 		for _, room := range c.Rooms {
 			room.Leave(c)
@@ -111,12 +111,12 @@ func (c *Conn) ReadPump() {
 	}
 }
 
-func (c *Conn) Write(mt int, payload []byte) error {
+func (c *Conn) write(mt int, payload []byte) error {
 	c.Socket.SetWriteDeadline(time.Time{})
 	return c.Socket.WriteMessage(mt, payload)
 }
 
-func (c *Conn) WritePump() {
+func (c *Conn) writePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
@@ -126,14 +126,14 @@ func (c *Conn) WritePump() {
 		select {
 		case msg, ok := <-c.Send:
 			if !ok {
-				c.Write(websocket.CloseMessage, []byte{})
+				c.write(websocket.CloseMessage, []byte{})
 				return
 			}
-			if err := c.Write(websocket.BinaryMessage, msg); err != nil {
+			if err := c.write(websocket.BinaryMessage, msg); err != nil {
 				return
 			}
 		case <-ticker.C:
-			if err := c.Write(websocket.PingMessage, []byte{}); err != nil {
+			if err := c.write(websocket.PingMessage, []byte{}); err != nil {
 				return
 			}
 		}
@@ -187,8 +187,8 @@ func SocketHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	c := NewConnection(w, r)
 	if c != nil {
-		go c.WritePump()
+		go c.writePump()
 		c.Join("root")
-		c.ReadPump()
+		c.readPump()
 	}
 }
