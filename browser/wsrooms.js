@@ -136,12 +136,12 @@
                 }
                 break;
             case "leave":
-                data = betterview(name.length + "left".length + store.id.length + 20);
+                data = betterview(name.length + "left".length + store.id.length + packet.src.length + 20);
                 data.writeUint32(name.length).writeString(name);
                 data.writeUint32("left".length).writeString("left");
                 data.writeUint32(0);
                 data.writeUint32(store.id.length).writeString(store.id);
-                data.writeUint32(0);
+                data.writeUint32(packet.src.length).writeString(packet.src);
                 socket.send(data.seek(0).getBytes());
                 room.emit("close");
                 break;

@@ -72,7 +72,7 @@ func (c *Conn) HandleData(data []byte, msg *Message) error {
 func (c *Conn) ReadPump() {
 	defer func() {
 		for _, room := range c.Rooms {
-			room.Leavechan <- c
+			room.Leave(c)
 		}
 		c.Socket.Close()
 	}()
@@ -153,7 +153,7 @@ func (c *Conn) Join(name string) {
 
 func (c *Conn) Leave(name string) {
 	if room, ok := RoomManager[name]; ok {
-		delete(c.Rooms, room.Name)
+		delete(c.Rooms, name)
 		room.Leave(c)
 	}
 }
