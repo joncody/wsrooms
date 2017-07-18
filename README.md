@@ -9,7 +9,6 @@ A [Gorilla WebSocket](https://github.com/gorilla/websocket) implementation with 
 - Conn.Id
 - Conn.Send
 - Conn.Rooms
-- Conn.HandleData
 - Conn.ReadPump
 - Conn.Write
 - Conn.WritePump
@@ -34,7 +33,6 @@ A [Gorilla WebSocket](https://github.com/gorilla/websocket) implementation with 
 - RoomMessage.Data
 
 ### Room
-- Room.Application
 - Room.Name
 - Room.Members
 - Room.Stopchan
