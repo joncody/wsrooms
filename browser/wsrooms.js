@@ -105,7 +105,7 @@
             data.writeUint32("leave".length).writeString("leave");
             data.writeUint32(0);
             data.writeUint32(store.id.length).writeString(store.id);
-            data.writeUint32(0);
+            data.writeUint32(store.id.length).writeString(store.id);
             socket.send(data.seek(0).getBytes());
         };
 
@@ -182,7 +182,7 @@
             join_data.writeUint32("join".length).writeString("join");
             join_data.writeUint32(0);
             join_data.writeUint32(store.id.length).writeString(store.id);
-            join_data.writeUint32(0);
+            join_data.writeUint32(store.id.length).writeString(store.id);
             socket.send(join_data.seek(0).getBytes());
         }
 
