@@ -43,6 +43,8 @@
 
         room.on("close", function () {
             store.open = false;
+            store.members = [];
+            store.id = "";
             delete rooms[name];
         });
 
@@ -100,12 +102,12 @@
             if (store.open === false) {
                 throw new Error("socket is closed");
             }
-            data = betterview(name.length + "leave".length + store.id.length + 20);
+            data = betterview(name.length + "leave".length + (store.id.length * 2) + 20);
             data.writeUint32(name.length).writeString(name);
             data.writeUint32("leave".length).writeString("leave");
             data.writeUint32(0);
             data.writeUint32(store.id.length).writeString(store.id);
-            data.writeUint32(0);
+            data.writeUint32(store.id.length).writeString(store.id);
             socket.send(data.seek(0).getBytes());
         };
 
@@ -119,12 +121,12 @@
                 store.members = JSON.parse(betterview.getStringFromCodes(packet.payload));
                 store.open = true;
                 room.emit("open");
-                data = betterview(name.length + "joined".length + store.id.length + packet.src.length + 20);
+                data = betterview(name.length + "joined".length + (store.id.length * 2) + 20);
                 data.writeUint32(name.length).writeString(name);
                 data.writeUint32("joined".length).writeString("joined");
                 data.writeUint32(0);
                 data.writeUint32(store.id.length).writeString(store.id);
-                data.writeUint32(packet.src.length).writeString(packet.src);
+                data.writeUint32(store.id.length).writeString(store.id);
                 socket.send(data.seek(0).getBytes());
                 break;
             case "joined":
@@ -136,12 +138,12 @@
                 }
                 break;
             case "leave":
-                data = betterview(name.length + "left".length + store.id.length + packet.src.length + 20);
+                data = betterview(name.length + "left".length + (store.id.length * 2) + 20);
                 data.writeUint32(name.length).writeString(name);
                 data.writeUint32("left".length).writeString("left");
                 data.writeUint32(0);
                 data.writeUint32(store.id.length).writeString(store.id);
-                data.writeUint32(packet.src.length).writeString(packet.src);
+                data.writeUint32(store.id.length).writeString(store.id);
                 socket.send(data.seek(0).getBytes());
                 room.emit("close");
                 break;
@@ -177,12 +179,12 @@
         rooms[name] = room;
 
         if (name !== "root") {
-            join_data = betterview(name.length + "join".length + store.id.length + 20);
+            join_data = betterview(name.length + "join".length + (store.id.length * 2) + 20);
             join_data.writeUint32(name.length).writeString(name);
             join_data.writeUint32("join".length).writeString("join");
             join_data.writeUint32(0);
             join_data.writeUint32(store.id.length).writeString(store.id);
-            join_data.writeUint32(0);
+            join_data.writeUint32(store.id.length).writeString(store.id);
             socket.send(join_data.seek(0).getBytes());
         }
 

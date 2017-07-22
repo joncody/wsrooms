@@ -43,6 +43,8 @@
 
         room.on("close", function () {
             store.open = false;
+            store.members = [];
+            store.id = "";
             delete rooms[name];
         });
 
