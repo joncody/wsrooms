@@ -101,19 +101,19 @@
 
         function checkBounds(offset, len) {
             if (typeof offset !== "number") {
-                throw new TypeError("offset is not a number");
+                return console.log("offset is not a number");
             }
             if (offset < 0) {
-                throw new RangeError("offset is negative");
+                return console.log("offset is negative");
             }
             if (typeof len !== "number") {
-                throw new TypeError("len is not a number");
+                return console.log("len is not a number");
             }
             if (len < 0) {
-                throw new RangeError("len is negative");
+                return console.log("len is negative");
             }
             if (offset + len > store.view.byteLength) {
-                throw new RangeError("bounds exceeded");
+                return console.log("bounds exceeded");
             }
         }
 

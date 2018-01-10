@@ -18,7 +18,7 @@
     "use strict";
 
     if (!global.WebSocket) {
-        throw new Error("WebSocket is not supported by this browser.");
+        return console.log("WebSocket is not supported by this browser.");
     }
 
     var rooms = {};
@@ -35,7 +35,7 @@
         var join_data;
 
         if (typeof name !== "string") {
-            throw new TypeError("name is not a string");
+            return console.log("name is not a string");
         }
         if (rooms.hasOwnProperty(name)) {
             return rooms[name];
@@ -53,13 +53,13 @@
             var data;
 
             if (store.open === false) {
-                throw new Error("socket is closed");
+                return console.log("socket is closed");
             }
             if (typeof event !== "string") {
-                throw new TypeError("event is not a string");
+                return console.log("event is not a string");
             }
             if (reserved.indexOf(event) !== -1) {
-                throw new TypeError("cannot send event with name " + event);
+                return console.log("cannot send event with name " + event);
             }
             if (payload === undefined) {
                 payload = "";
@@ -83,13 +83,13 @@
 
         room.join = function (roomname) {
             if (store.open === false) {
-                throw new Error("socket is closed");
+                return console.log("socket is closed");
             }
             if (typeof roomname !== "string") {
-                throw new TypeError("roomname is not a string");
+                return console.log("roomname is not a string");
             }
             if (roomname === "root") {
-                throw new Error("cannot join the root room - it is joined by default");
+                return console.log("cannot join the root room - it is joined by default");
             }
             return rooms.hasOwnProperty(roomname)
                 ? rooms[roomname]
@@ -100,7 +100,7 @@
             var data;
 
             if (store.open === false) {
-                throw new Error("socket is closed");
+                return console.log("socket is closed");
             }
             data = betterview(name.length + "leave".length + (store.id.length * 2) + 20);
             data.writeUint32(name.length).writeString(name);
@@ -203,7 +203,7 @@
         var root = getRoom("root");
 
         if (typeof url !== "string") {
-            throw new TypeError("url must be a string");
+            return console.log("url must be a string");
         }
         socket = new WebSocket(url);
         socket.binaryType = "arraybuffer";
@@ -218,7 +218,7 @@
             packet.src = data.getString(data.getUint32());
             packet.payload = data.getBytes(data.getUint32());
             if (!rooms.hasOwnProperty(packet.room)) {
-                throw new Error("room does not exist");
+                return console.log("room does not exist");
             }
             rooms[packet.room].parse(packet);
         };
