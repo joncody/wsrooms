@@ -17,6 +17,25 @@
 (function (global) {
     "use strict";
 
+    if (ArrayBuffer.prototype.slice === undefined) {
+        ArrayBuffer.prototype.slice = function (start, end) {
+            var that = new Uint8Array(this);
+            var result;
+            var resultArray;
+            var i;
+
+            if (end === undefined) {
+                end = that.length;
+            }
+            result = new ArrayBuffer(end - start);
+            resultArray = new Uint8Array(result);
+            for (i = 0; i < resultArray.length; i += 1) {
+                resultArray[i] = that[i + start];
+            }
+            return result;
+        };
+    }
+
     var number_types_and_bytes = {
         "Int8": 1,
         "Uint8": 1,
@@ -96,7 +115,7 @@
         var store = {};
 
         store.buffer = toBuffer(buffer);
-        store.view = new DataView(store.buffer, offset, length);
+        store.view = new DataView(store.buffer, offset || 0, length || store.buffer.byteLength);
         store.offset = 0;
 
         function checkBounds(offset, len) {
