@@ -170,9 +170,14 @@ func NewConnection(w http.ResponseWriter, r *http.Request) *Conn {
 		log.Println(err)
 		return nil
 	}
+	id, err := uuid.NewV4()
+	if err != nil {
+		log.Println(err)
+		return nil
+	}
 	c := &Conn{
 		Socket: socket,
-		Id:     uuid.NewV4().String(),
+		Id:     id.String(),
 		Send:   make(chan []byte, 256),
 		Rooms:  make(map[string]*Room),
 	}
