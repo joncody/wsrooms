@@ -25,7 +25,12 @@ import (
 	"time"
 )
 
-const maxMessageSize = 1024 * 1024 * 1024
+const (
+	writeWait = 10 * time.Second
+	pongWait = 60 * time.Second
+	pingPeriod = pongWait * 9 / 10
+	maxMessageSize = 1024 * 1024 * 1024
+)
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  4096,
@@ -72,9 +77,9 @@ func (c *Conn) readPump() {
 		c.Socket.Close()
 	}()
 	c.Socket.SetReadLimit(maxMessageSize)
-	c.Socket.SetReadDeadline(time.Time{})
+	c.Socket.SetReadDeadline(time.Now().Add(pongWait))
 	c.Socket.SetPongHandler(func(string) error {
-		c.Socket.SetReadDeadline(time.Time{})
+		c.Socket.SetReadDeadline(time.Now().Add(pongWait))
 		return nil
 	})
 	for {
@@ -107,12 +112,14 @@ func (c *Conn) readPump() {
 }
 
 func (c *Conn) write(mt int, payload []byte) error {
-	c.Socket.SetWriteDeadline(time.Time{})
+	c.Socket.SetWriteDeadline(time.Now().Add(writeWait))
 	return c.Socket.WriteMessage(mt, payload)
 }
 
 func (c *Conn) writePump() {
+	ticker := time.NewTicker(pingPeriod)
 	defer func() {
+		ticker.Stop()
 		c.Socket.Close()
 	}()
 	for {
@@ -123,6 +130,10 @@ func (c *Conn) writePump() {
 				return
 			}
 			if err := c.write(websocket.BinaryMessage, msg); err != nil {
+				return
+			}
+		case <-ticker.C:
+			if err := c.write(websocket.PingMessage, []byte{}); err != nil {
 				return
 			}
 		}
