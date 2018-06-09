@@ -15,13 +15,13 @@ A [Gorilla WebSocket](https://github.com/gorilla/websocket) implementation with 
 - **NewRoom** _func (string) &ast;Room_ creates a new room with the given name, starts the room, and returns the room
 
 ### Conn
-- **Conn.Socket _&ast;websocket.Conn_ underlying gorilla websocket
-- **Conn.Id _string_ unique id
-- **Conn.Send _chan []byte_ a means to send bytes to the connection
-- **Conn.Rooms _map[string]&ast;Room_ holds all rooms the connection is within
-- **Conn.Join _func (string)_ joins a room
-- **Conn.Leave _func (string)_ leaves a room
-- **Conn.Emit _func ([]byte, &ast;Message)_  a means to send bytes to all connections within the room specified by message
+- **Conn.Socket** _&ast;websocket.Conn_ underlying gorilla websocket
+- **Conn.Id** _string_ unique id
+- **Conn.Send** _chan []byte_ a means to send bytes to the connection
+- **Conn.Rooms** _map[string]&ast;Room_ holds all rooms the connection is within
+- **Conn.Join** _func (string)_ joins a room
+- **Conn.Leave** _func (string)_ leaves a room
+- **Conn.Emit** _func ([]byte, &ast;Message)_  a means to send bytes to all connections within the room specified by message
 
 ### Message
 - **Message.RoomLength** _int_ length of room name in characters
