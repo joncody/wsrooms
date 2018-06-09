@@ -1,148 +1,3 @@
-//    Title: emitter.js
-//    Author: Jon Cody
-//
-//    This program is free software: you can redistribute it and/or modify
-//    it under the terms of the GNU General Public License as published by
-//    the Free Software Foundation, either version 3 of the License, or
-//    (at your option) any later version.
-//
-//    This program is distributed in the hope that it will be useful,
-//    but WITHOUT ANY WARRANTY; without even the implied warranty of
-//    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//    GNU General Public License for more details.
-//
-//    You should have received a copy of the GNU General Public License
-//    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-(function (global) {
-    "use strict";
-
-    function emitter(object) {
-        object = (object && typeof object === "object")
-            ? object
-            : {};
-        object.emitter = true;
-        object.events = {};
-
-        object.addListener = function addListener(type, listener) {
-            var list = object.events[type];
-
-            if (typeof listener === "function") {
-                if (object.events.newListener) {
-                    object.emit("newListener", type, typeof listener.listener === "function"
-                        ? listener.listener
-                        : listener);
-                }
-                if (!list) {
-                    object.events[type] = [listener];
-                } else {
-                    object.events[type].push(listener);
-                }
-            }
-            return object;
-        };
-        object.on = object.addListener;
-
-        object.once = function once(type, listener) {
-            function onetime() {
-                object.removeListener(type, onetime);
-                listener.apply(object);
-            }
-            if (typeof listener === "function") {
-                onetime.listener = listener;
-                object.on(type, onetime);
-            }
-            return object;
-        };
-
-        object.removeListener = function removeListener(type, listener) {
-            var list = object.events[type];
-            var position = -1;
-
-            if (typeof listener === "function" && list) {
-                list.some(function (value, index) {
-                    if (value === listener || (value.listener && value.listener === listener)) {
-                        position = index;
-                        return true;
-                    }
-                });
-                if (position >= 0) {
-                    if (list.length === 1) {
-                        delete object.events[type];
-                    } else {
-                        list.splice(position, 1);
-                    }
-                    if (object.events.removeListener) {
-                        object.emit("removeListener", type, listener);
-                    }
-                }
-            }
-            return object;
-        };
-        object.off = object.removeListener;
-
-        object.removeAllListeners = function removeAllListeners(type) {
-            var list;
-
-            if (!object.events.removeListener) {
-                if (!type) {
-                    object.events = {};
-                } else {
-                    delete object.events[type];
-                }
-            } else if (!type) {
-                Object.keys(object.events).forEach(function (key) {
-                    if (key !== "removeListener") {
-                        object.removeAllListeners(key);
-                    }
-                });
-                object.removeAllListeners("removeListener");
-                object.events = {};
-            } else {
-                list = object.events[type];
-                list.forEach(function (item) {
-                    object.removeListener(type, item);
-                });
-                delete object.events[type];
-            }
-            return object;
-        };
-
-        object.listeners = function listeners(type) {
-            var list = [];
-
-            if (typeof type === "string" && object.events[type]) {
-                list = object.events[type];
-            } else {
-                Object.keys(object.events).forEach(function (key) {
-                    list.push(object.events[key]);
-                });
-            }
-            return list;
-        };
-
-        object.emit = function emit(type) {
-            var list = object.events[type];
-            var bool = false;
-            var args;
-
-            if (list) {
-                args = Array.prototype.slice.call(arguments).slice(1);
-                list.forEach(function (value) {
-                    value.apply(object, args);
-                });
-                bool = true;
-            }
-            return bool;
-        };
-
-        return object;
-    }
-
-    global.emitter = Object.freeze(emitter);
-
-}(window || this));
-
 //    Title: betterview.js
 //    Author: Jon Cody
 //
@@ -428,6 +283,151 @@
 
 }(window || this));
 
+//    Title: emitter.js
+//    Author: Jon Cody
+//
+//    This program is free software: you can redistribute it and/or modify
+//    it under the terms of the GNU General Public License as published by
+//    the Free Software Foundation, either version 3 of the License, or
+//    (at your option) any later version.
+//
+//    This program is distributed in the hope that it will be useful,
+//    but WITHOUT ANY WARRANTY; without even the implied warranty of
+//    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//    GNU General Public License for more details.
+//
+//    You should have received a copy of the GNU General Public License
+//    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+(function (global) {
+    "use strict";
+
+    function emitter(object) {
+        object = (object && typeof object === "object")
+            ? object
+            : {};
+        object.emitter = true;
+        object.events = {};
+
+        object.addListener = function addListener(type, listener) {
+            var list = object.events[type];
+
+            if (typeof listener === "function") {
+                if (object.events.newListener) {
+                    object.emit("newListener", type, typeof listener.listener === "function"
+                        ? listener.listener
+                        : listener);
+                }
+                if (!list) {
+                    object.events[type] = [listener];
+                } else {
+                    object.events[type].push(listener);
+                }
+            }
+            return object;
+        };
+        object.on = object.addListener;
+
+        object.once = function once(type, listener) {
+            function onetime() {
+                object.removeListener(type, onetime);
+                listener.apply(object);
+            }
+            if (typeof listener === "function") {
+                onetime.listener = listener;
+                object.on(type, onetime);
+            }
+            return object;
+        };
+
+        object.removeListener = function removeListener(type, listener) {
+            var list = object.events[type];
+            var position = -1;
+
+            if (typeof listener === "function" && list) {
+                list.some(function (value, index) {
+                    if (value === listener || (value.listener && value.listener === listener)) {
+                        position = index;
+                        return true;
+                    }
+                });
+                if (position >= 0) {
+                    if (list.length === 1) {
+                        delete object.events[type];
+                    } else {
+                        list.splice(position, 1);
+                    }
+                    if (object.events.removeListener) {
+                        object.emit("removeListener", type, listener);
+                    }
+                }
+            }
+            return object;
+        };
+        object.off = object.removeListener;
+
+        object.removeAllListeners = function removeAllListeners(type) {
+            var list;
+
+            if (!object.events.removeListener) {
+                if (!type) {
+                    object.events = {};
+                } else {
+                    delete object.events[type];
+                }
+            } else if (!type) {
+                Object.keys(object.events).forEach(function (key) {
+                    if (key !== "removeListener") {
+                        object.removeAllListeners(key);
+                    }
+                });
+                object.removeAllListeners("removeListener");
+                object.events = {};
+            } else {
+                list = object.events[type];
+                list.forEach(function (item) {
+                    object.removeListener(type, item);
+                });
+                delete object.events[type];
+            }
+            return object;
+        };
+
+        object.listeners = function listeners(type) {
+            var list = [];
+
+            if (typeof type === "string" && object.events[type]) {
+                list = object.events[type];
+            } else {
+                Object.keys(object.events).forEach(function (key) {
+                    list.push(object.events[key]);
+                });
+            }
+            return list;
+        };
+
+        object.emit = function emit(type) {
+            var list = object.events[type];
+            var bool = false;
+            var args;
+
+            if (list) {
+                args = Array.prototype.slice.call(arguments).slice(1);
+                list.forEach(function (value) {
+                    value.apply(object, args);
+                });
+                bool = true;
+            }
+            return bool;
+        };
+
+        return object;
+    }
+
+    global.emitter = Object.freeze(emitter);
+
+}(window || this));
+
 //    Title: wsrooms.js
 //    Author: Jon Cody
 //
@@ -478,6 +478,20 @@
             delete rooms[name];
         });
 
+        room.name = name;
+
+        room.open = function () {
+            return store.open;
+        };
+
+        room.members = function () {
+            return store.members;
+        };
+
+        room.id = function () {
+            return store.id;
+        };
+
         room.send = function (event, payload, dst) {
             var src = store.id;
             var data;
@@ -497,12 +511,12 @@
             if (typeof dst !== "string") {
                 dst = "";
             }
-            data = betterview(name.length + event.length + dst.length + src.length + (payload.byteLength || payload.length || 0) + 20);
-            data.writeUint32(name.length).writeString(name);
-            data.writeUint32(event.length).writeString(event);
-            data.writeUint32(dst.length).writeString(dst);
-            data.writeUint32(src.length).writeString(src);
-            data.writeUint32(payload.byteLength || payload.length || 0);
+            data = betterview(name.length + event.length + dst.length + src.length + (payload.byteLength || payload.length || 0) + 20)
+                .writeUint32(name.length).writeString(name)
+                .writeUint32(event.length).writeString(event)
+                .writeUint32(dst.length).writeString(dst)
+                .writeUint32(src.length).writeString(src)
+                .writeUint32(payload.byteLength || payload.length || 0);
             if (typeof payload === "string") {
                 data.writeString(payload);
             } else {
@@ -532,12 +546,12 @@
             if (store.open === false) {
                 return console.log("socket is closed");
             }
-            data = betterview(name.length + "leave".length + (store.id.length * 2) + 20);
-            data.writeUint32(name.length).writeString(name);
-            data.writeUint32("leave".length).writeString("leave");
-            data.writeUint32(0);
-            data.writeUint32(store.id.length).writeString(store.id);
-            data.writeUint32(store.id.length).writeString(store.id);
+            data = betterview(name.length + "leave".length + (store.id.length * 2) + 20)
+                .writeUint32(name.length).writeString(name)
+                .writeUint32("leave".length).writeString("leave")
+                .writeUint32(0)
+                .writeUint32(store.id.length).writeString(store.id)
+                .writeUint32(store.id.length).writeString(store.id);
             socket.send(data.seek(0).getBytes());
         };
 
@@ -551,12 +565,12 @@
                 store.members = JSON.parse(betterview.getStringFromCodes(packet.payload));
                 store.open = true;
                 room.emit("open");
-                data = betterview(name.length + "joined".length + (store.id.length * 2) + 20);
-                data.writeUint32(name.length).writeString(name);
-                data.writeUint32("joined".length).writeString("joined");
-                data.writeUint32(0);
-                data.writeUint32(store.id.length).writeString(store.id);
-                data.writeUint32(store.id.length).writeString(store.id);
+                data = betterview(name.length + "joined".length + (store.id.length * 2) + 20)
+                    .writeUint32(name.length).writeString(name)
+                    .writeUint32("joined".length).writeString("joined")
+                    .writeUint32(0)
+                    .writeUint32(store.id.length).writeString(store.id)
+                    .writeUint32(store.id.length).writeString(store.id);
                 socket.send(data.seek(0).getBytes());
                 break;
             case "joined":
@@ -568,12 +582,12 @@
                 }
                 break;
             case "leave":
-                data = betterview(name.length + "left".length + (store.id.length * 2) + 20);
-                data.writeUint32(name.length).writeString(name);
-                data.writeUint32("left".length).writeString("left");
-                data.writeUint32(0);
-                data.writeUint32(store.id.length).writeString(store.id);
-                data.writeUint32(store.id.length).writeString(store.id);
+                data = betterview(name.length + "left".length + (store.id.length * 2) + 20)
+                    .writeUint32(name.length).writeString(name)
+                    .writeUint32("left".length).writeString("left")
+                    .writeUint32(0)
+                    .writeUint32(store.id.length).writeString(store.id)
+                    .writeUint32(store.id.length).writeString(store.id);
                 socket.send(data.seek(0).getBytes());
                 room.emit("close");
                 break;
@@ -590,31 +604,15 @@
             }
         };
 
-        room.open = function () {
-            return store.open;
-        };
-
-        room.name = function () {
-            return name;
-        };
-
-        room.members = function () {
-            return store.members;
-        };
-
-        room.id = function () {
-            return store.id;
-        };
-
         rooms[name] = room;
 
         if (name !== "root") {
-            join_data = betterview(name.length + "join".length + (store.id.length * 2) + 20);
-            join_data.writeUint32(name.length).writeString(name);
-            join_data.writeUint32("join".length).writeString("join");
-            join_data.writeUint32(0);
-            join_data.writeUint32(store.id.length).writeString(store.id);
-            join_data.writeUint32(store.id.length).writeString(store.id);
+            join_data = betterview(name.length + "join".length + (store.id.length * 2) + 20)
+                .writeUint32(name.length).writeString(name)
+                .writeUint32("join".length).writeString("join")
+                .writeUint32(0)
+                .writeUint32(store.id.length).writeString(store.id)
+                .writeUint32(store.id.length).writeString(store.id);
             socket.send(join_data.seek(0).getBytes());
         } else {
             room.purge = function () {
@@ -640,13 +638,14 @@
 
         socket.onmessage = function (e) {
             var data = betterview(e.data);
-            var packet = {};
+            var packet = {
+                room: data.getString(data.getUint32()),
+                event: data.getString(data.getUint32()),
+                dst: data.getString(data.getUint32()),
+                src: data.getString(data.getUint32()),
+                payload: data.getBytes(data.getUint32())
+            };
 
-            packet.room = data.getString(data.getUint32());
-            packet.event = data.getString(data.getUint32());
-            packet.dst = data.getString(data.getUint32());
-            packet.src = data.getString(data.getUint32());
-            packet.payload = data.getBytes(data.getUint32());
             if (!rooms.hasOwnProperty(packet.room)) {
                 return console.log("room does not exist");
             }

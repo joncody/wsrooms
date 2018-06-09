@@ -20,10 +20,16 @@ import (
 	"github.com/chuckpreslar/emission"
 	"github.com/gorilla/websocket"
 	"github.com/satori/go.uuid"
-	"log"
 	"net/http"
 	"time"
 )
+
+type Conn struct {
+	Socket *websocket.Conn
+	Id     string
+	Send   chan []byte
+	Rooms  map[string]*Room
+}
 
 const (
 	writeWait = 10 * time.Second
@@ -38,19 +44,12 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin:     func(r *http.Request) bool { return true },
 }
 
-type Conn struct {
-	Socket *websocket.Conn
-	Id     string
-	Send   chan []byte
-	Rooms  map[string]*Room
-}
-
 var (
 	ConnManager = make(map[string]*Conn)
 	Emitter     = emission.NewEmitter()
 )
 
-var HandleData = func(c *Conn, data []byte, msg *Message) error {
+var HandleData = func(c *Conn, data []byte, msg *Message) {
 	switch msg.Event {
 	case "join":
 		c.Join(msg.Room)
@@ -66,7 +65,6 @@ var HandleData = func(c *Conn, data []byte, msg *Message) error {
 		}
 	}
 	Emitter.Emit(msg.Event, c, data, msg)
-	return nil
 }
 
 func (c *Conn) readPump() {
@@ -85,7 +83,6 @@ func (c *Conn) readPump() {
 	for {
 		_, data, err := c.Socket.ReadMessage()
 		if err != nil {
-			log.Println(err)
 			if _, ok := err.(*websocket.CloseError); ok {
 				for name, room := range c.Rooms {
 					payload := &Message{
@@ -105,9 +102,7 @@ func (c *Conn) readPump() {
 			}
 			break
 		}
-		if err := HandleData(c, data, BytesToMessage(data)); err != nil {
-			log.Println(err)
-		}
+		HandleData(c, data, BytesToMessage(data))
 	}
 }
 
@@ -142,6 +137,7 @@ func (c *Conn) writePump() {
 
 func (c *Conn) Join(name string) {
 	var room *Room
+
 	if _, ok := RoomManager[name]; ok {
 		room = RoomManager[name]
 	} else {
@@ -167,12 +163,10 @@ func (c *Conn) Emit(data []byte, msg *Message) {
 func NewConnection(w http.ResponseWriter, r *http.Request) *Conn {
 	socket, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println(err)
 		return nil
 	}
 	id, err := uuid.NewV4()
 	if err != nil {
-		log.Println(err)
 		return nil
 	}
 	c := &Conn{

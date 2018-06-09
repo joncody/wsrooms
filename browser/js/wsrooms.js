@@ -48,6 +48,20 @@
             delete rooms[name];
         });
 
+        room.name = name;
+
+        room.open = function () {
+            return store.open;
+        };
+
+        room.members = function () {
+            return store.members;
+        };
+
+        room.id = function () {
+            return store.id;
+        };
+
         room.send = function (event, payload, dst) {
             var src = store.id;
             var data;
@@ -67,12 +81,12 @@
             if (typeof dst !== "string") {
                 dst = "";
             }
-            data = betterview(name.length + event.length + dst.length + src.length + (payload.byteLength || payload.length || 0) + 20);
-            data.writeUint32(name.length).writeString(name);
-            data.writeUint32(event.length).writeString(event);
-            data.writeUint32(dst.length).writeString(dst);
-            data.writeUint32(src.length).writeString(src);
-            data.writeUint32(payload.byteLength || payload.length || 0);
+            data = betterview(name.length + event.length + dst.length + src.length + (payload.byteLength || payload.length || 0) + 20)
+                .writeUint32(name.length).writeString(name)
+                .writeUint32(event.length).writeString(event)
+                .writeUint32(dst.length).writeString(dst)
+                .writeUint32(src.length).writeString(src)
+                .writeUint32(payload.byteLength || payload.length || 0);
             if (typeof payload === "string") {
                 data.writeString(payload);
             } else {
@@ -102,12 +116,12 @@
             if (store.open === false) {
                 return console.log("socket is closed");
             }
-            data = betterview(name.length + "leave".length + (store.id.length * 2) + 20);
-            data.writeUint32(name.length).writeString(name);
-            data.writeUint32("leave".length).writeString("leave");
-            data.writeUint32(0);
-            data.writeUint32(store.id.length).writeString(store.id);
-            data.writeUint32(store.id.length).writeString(store.id);
+            data = betterview(name.length + "leave".length + (store.id.length * 2) + 20)
+                .writeUint32(name.length).writeString(name)
+                .writeUint32("leave".length).writeString("leave")
+                .writeUint32(0)
+                .writeUint32(store.id.length).writeString(store.id)
+                .writeUint32(store.id.length).writeString(store.id);
             socket.send(data.seek(0).getBytes());
         };
 
@@ -121,12 +135,12 @@
                 store.members = JSON.parse(betterview.getStringFromCodes(packet.payload));
                 store.open = true;
                 room.emit("open");
-                data = betterview(name.length + "joined".length + (store.id.length * 2) + 20);
-                data.writeUint32(name.length).writeString(name);
-                data.writeUint32("joined".length).writeString("joined");
-                data.writeUint32(0);
-                data.writeUint32(store.id.length).writeString(store.id);
-                data.writeUint32(store.id.length).writeString(store.id);
+                data = betterview(name.length + "joined".length + (store.id.length * 2) + 20)
+                    .writeUint32(name.length).writeString(name)
+                    .writeUint32("joined".length).writeString("joined")
+                    .writeUint32(0)
+                    .writeUint32(store.id.length).writeString(store.id)
+                    .writeUint32(store.id.length).writeString(store.id);
                 socket.send(data.seek(0).getBytes());
                 break;
             case "joined":
@@ -138,12 +152,12 @@
                 }
                 break;
             case "leave":
-                data = betterview(name.length + "left".length + (store.id.length * 2) + 20);
-                data.writeUint32(name.length).writeString(name);
-                data.writeUint32("left".length).writeString("left");
-                data.writeUint32(0);
-                data.writeUint32(store.id.length).writeString(store.id);
-                data.writeUint32(store.id.length).writeString(store.id);
+                data = betterview(name.length + "left".length + (store.id.length * 2) + 20)
+                    .writeUint32(name.length).writeString(name)
+                    .writeUint32("left".length).writeString("left")
+                    .writeUint32(0)
+                    .writeUint32(store.id.length).writeString(store.id)
+                    .writeUint32(store.id.length).writeString(store.id);
                 socket.send(data.seek(0).getBytes());
                 room.emit("close");
                 break;
@@ -160,31 +174,15 @@
             }
         };
 
-        room.open = function () {
-            return store.open;
-        };
-
-        room.name = function () {
-            return name;
-        };
-
-        room.members = function () {
-            return store.members;
-        };
-
-        room.id = function () {
-            return store.id;
-        };
-
         rooms[name] = room;
 
         if (name !== "root") {
-            join_data = betterview(name.length + "join".length + (store.id.length * 2) + 20);
-            join_data.writeUint32(name.length).writeString(name);
-            join_data.writeUint32("join".length).writeString("join");
-            join_data.writeUint32(0);
-            join_data.writeUint32(store.id.length).writeString(store.id);
-            join_data.writeUint32(store.id.length).writeString(store.id);
+            join_data = betterview(name.length + "join".length + (store.id.length * 2) + 20)
+                .writeUint32(name.length).writeString(name)
+                .writeUint32("join".length).writeString("join")
+                .writeUint32(0)
+                .writeUint32(store.id.length).writeString(store.id)
+                .writeUint32(store.id.length).writeString(store.id);
             socket.send(join_data.seek(0).getBytes());
         } else {
             room.purge = function () {
@@ -210,13 +208,14 @@
 
         socket.onmessage = function (e) {
             var data = betterview(e.data);
-            var packet = {};
+            var packet = {
+                room: data.getString(data.getUint32()),
+                event: data.getString(data.getUint32()),
+                dst: data.getString(data.getUint32()),
+                src: data.getString(data.getUint32()),
+                payload: data.getBytes(data.getUint32())
+            };
 
-            packet.room = data.getString(data.getUint32());
-            packet.event = data.getString(data.getUint32());
-            packet.dst = data.getString(data.getUint32());
-            packet.src = data.getString(data.getUint32());
-            packet.payload = data.getBytes(data.getUint32());
             if (!rooms.hasOwnProperty(packet.room)) {
                 return console.log("room does not exist");
             }
