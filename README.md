@@ -6,8 +6,8 @@ A [Gorilla WebSocket](https://github.com/gorilla/websocket) implementation with 
 ## API
 `go get -u github.com/joncody/wsrooms`
 ### Globals
-- **RoomManager** _map[string]&ast;Room_ holds of all created rooms
-- **ConnManager** _map[string]&ast;Conn_ holds of all created connections
+- **RoomManager** _map[string]&ast;Room_ holds all created rooms
+- **ConnManager** _map[string]&ast;Conn_ holds all created connections
 - **HandleData** _func (&ast;Conn, []byte, &ast;Message)_ parses and handles client websocket messages before passing them off to Emitter
 - **Emitter** _&ast;emission.Emitter_ emits all websocket events
 - **NewConnection** _func (http.ResponseWriter, &ast;http.Request) &ast;Conn_ upgrades an HTTP request and returns a new connection
