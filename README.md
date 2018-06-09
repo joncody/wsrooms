@@ -5,7 +5,7 @@ A [Gorilla WebSocket](https://github.com/gorilla/websocket) implementation with 
 
 ## API
 `go get -u github.com/joncody/wsrooms`
-### Globals
+#### Globals
 - **RoomManager** _map[string]&ast;Room_ holds all created rooms
 - **ConnManager** _map[string]&ast;Conn_ holds all created connections
 - **HandleData** _func (&ast;Conn, []byte, &ast;Message)_ parses and handles client websocket messages before passing them off to Emitter
@@ -14,7 +14,7 @@ A [Gorilla WebSocket](https://github.com/gorilla/websocket) implementation with 
 - **SocketHandler** _func (http.ResponseWriter, &ast;http.Request) &ast;Conn_ calls NewConnection, starts the returned connection's write pump within a go routine, joins the root room, and starts the new read pump
 - **NewRoom** _func (string) &ast;Room_ creates a new room with the given name, starts the room, and returns the room
 
-### Conn
+#### Conn
 - **Conn.Socket** _&ast;websocket.Conn_ underlying gorilla websocket
 - **Conn.Id** _string_ unique id
 - **Conn.Send** _chan []byte_ a means to send bytes to the connection
@@ -23,7 +23,7 @@ A [Gorilla WebSocket](https://github.com/gorilla/websocket) implementation with 
 - **Conn.Leave** _func (string)_ leaves a room
 - **Conn.Emit** _func ([]byte, &ast;Message)_  a means to send bytes to all connections within the room specified by message
 
-### Message
+#### Message
 - **Message.RoomLength** _int_ length of room name in characters
 - **Message.Room** _string_ name of room
 - **Message.EventLength** _int_ length of event name in characters
@@ -34,11 +34,11 @@ A [Gorilla WebSocket](https://github.com/gorilla/websocket) implementation with 
 - **Message.Src** _string_ source id
 - **Message.PayloadLength** _int_  length of payload in bytes
 - **Message.Payload** _[]byte_ payload
-###### RoomMessage
+##### RoomMessage
 - **RoomMessage.Sender** _&ast;Conn_ message originator
 - **RoomMessage.Data** _[]byte_ bytes to send to all connections within a room other than its sender
 
-### Room
+#### Room
 - **Room.Name** _string_ name of room
 - **Room.Members** _map[string]&ast;Conn_ holds all connections within the room
 - **Room.Stopchan** _chan bool_ a means to shutdown the room
@@ -52,10 +52,10 @@ A [Gorilla WebSocket](https://github.com/gorilla/websocket) implementation with 
 - **Room.Emit** _func (&ast;Conn, []byte)_ a shorthand method to send bytes to all connections within the room from and with the exception of the given sender
 
 ## Browser
-### Globals
+#### Globals
 - **wsrooms** _func (url)_ returns the root room
 
-### Room
+#### Room
 - **room.on** _func (string, func (args...))_ listen for opened, joined, left, close, and custom events
 - **room.name** _string_ the name of the room
 - **room.open** _func ()_ returns a boolean indicating the room open status
