@@ -10,8 +10,8 @@ A [Gorilla WebSocket](https://github.com/gorilla/websocket) implementation with 
 - **ConnManager** _map[string]&ast;Conn_ holds of all created connections
 - **HandleData** _func (&ast;Conn, []byte, &ast;Message)_ parses and handles client websocket messages before passing them off to Emitter
 - **Emitter** _&ast;emission.Emitter_ emits all websocket events
-- **NewConnection** _func (http.ResponseWriter, &ast;http.Request) *Conn_ upgrades an HTTP request and returns a new connection
-- **SocketHandler** _func (http.ResponseWriter, &ast;http.Request) *Conn_ calls NewConnection, starts the returned connection's write pump within a go routine, joins the root room, and starts the new read pump
+- **NewConnection** _func (http.ResponseWriter, &ast;http.Request) &ast;Conn_ upgrades an HTTP request and returns a new connection
+- **SocketHandler** _func (http.ResponseWriter, &ast;http.Request) &ast;Conn_ calls NewConnection, starts the returned connection's write pump within a go routine, joins the root room, and starts the new read pump
 - **NewRoom** _func (string) &ast;Room_ creates a new room with the given name, starts the room, and returns the room
 
 ### Conn
