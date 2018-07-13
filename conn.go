@@ -165,7 +165,7 @@ func NewConnection(w http.ResponseWriter, r *http.Request) *Conn {
 	if err != nil {
 		return nil
 	}
-	id, err := uuid.UUID.NewRandom()
+	id, err := uuid.NewRandom()
 	if err != nil {
 		return nil
 	}
