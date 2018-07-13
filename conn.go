@@ -19,7 +19,7 @@ package wsrooms
 import (
 	"github.com/chuckpreslar/emission"
 	"github.com/gorilla/websocket"
-	"github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"net/http"
 	"time"
 )
@@ -165,7 +165,7 @@ func NewConnection(w http.ResponseWriter, r *http.Request) *Conn {
 	if err != nil {
 		return nil
 	}
-	id, err := uuid.NewV4()
+	id, err := uuid.UUID.NewRandom()
 	if err != nil {
 		return nil
 	}
