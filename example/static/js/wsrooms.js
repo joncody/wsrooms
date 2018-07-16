@@ -21,22 +21,22 @@
         ArrayBuffer.prototype.slice = function (start, end) {
             var that = new Uint8Array(this);
             var result;
-            var resultArray;
+            var resultarray;
             var i;
 
             if (end === undefined) {
                 end = that.length;
             }
             result = new ArrayBuffer(end - start);
-            resultArray = new Uint8Array(result);
-            for (i = 0; i < resultArray.length; i += 1) {
-                resultArray[i] = that[i + start];
+            resultarray = new Uint8Array(result);
+            for (i = 0; i < resultarray.length; i += 1) {
+                resultarray[i] = that[i + start];
             }
             return result;
         };
     }
 
-    var number_types_and_bytes = {
+    var numbersandbytes = {
         "Int8": 1,
         "Uint8": 1,
         "Int16": 2,
@@ -48,7 +48,7 @@
     };
 
     function isTypedArray(array) {
-        var array_types = [
+        var arraytypes = [
             "Int8Array",
             "Uint8Array",
             "Uint8ClampedArray",
@@ -61,7 +61,7 @@
         ];
         var type = Object.prototype.toString.call(array).replace(/\[object\s(\w+)\]/, "$1");
 
-        return array_types.indexOf(type) > -1;
+        return arraytypes.indexOf(type) > -1;
     }
 
     function getCodesFromString(string) {
@@ -169,24 +169,24 @@
         }
 
         function setBytes(offset, bytes) {
-            var converted_bytes = toUint8(bytes);
-            var len = converted_bytes.byteLength || converted_bytes.length || 0;
+            var convertedbytes = toUint8(bytes);
+            var len = convertedbytes.byteLength || convertedbytes.length || 0;
 
             offset = offset === undefined
                 ? store.offset
                 : offset;
             checkBounds(offset, len);
             store.offset = offset + len;
-            toUint8(store.view.buffer).set(converted_bytes, offset);
+            toUint8(store.view.buffer).set(convertedbytes, offset);
             return better;
         }
 
         function writeBytes(bytes) {
-            var converted_bytes = toUint8(bytes);
-            var len = converted_bytes.byteLength || converted_bytes.length || 0;
+            var convertedbytes = toUint8(bytes);
+            var len = convertedbytes.byteLength || convertedbytes.length || 0;
 
             checkBounds(store.offset, len);
-            toUint8(store.view.buffer).set(converted_bytes, store.offset);
+            toUint8(store.view.buffer).set(convertedbytes, store.offset);
             store.offset = store.offset + len;
             return better;
         }
@@ -262,8 +262,8 @@
         better.setChar = setChar;
         better.writeChar = writeChar;
 
-        Object.keys(number_types_and_bytes).forEach(function (type) {
-            var bytes = number_types_and_bytes[type];
+        Object.keys(numbersandbytes).forEach(function (type) {
+            var bytes = numbersandbytes[type];
 
             better["get" + type] = getNumber(type, bytes);
             better["set" + type] = setNumber(type, bytes);
