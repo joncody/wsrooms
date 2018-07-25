@@ -65,7 +65,7 @@ A [Gorilla WebSocket](https://github.com/gorilla/websocket) implementation with 
 - **room.join**
 - **room.leave**
 - **room.parse**
-- **room.purge** __root room only__
+- **room.purge** _root room only_
 ##### Events
 - **"open"**
 - **"joined"**
