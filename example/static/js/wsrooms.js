@@ -1,4 +1,4 @@
-//    Title: betterview.js
+//    Title: gg.js
 //    Author: Jon Cody
 //
 //    This program is free software: you can redistribute it and/or modify
@@ -17,6 +17,132 @@
 (function (global) {
     "use strict";
 
+    var ggid = (function () {
+        var id = 0;
+        var maxint = Math.pow(2, 53) - 1;
+
+        return function () {
+            id = id < maxint
+                ? id + 1
+                : 1;
+            return id;
+        };
+    }());
+    var keyboardHandler;
+    var keyboardListeners = [];
+    var listeners = {};
+    var mouseHandler;
+    var mouseListeners = [];
+    var numbersandbytes = {
+        "Int8": 1,
+        "Uint8": 1,
+        "Int16": 2,
+        "Uint16": 2,
+        "Int32": 4,
+        "Uint32": 4,
+        "Float32": 4,
+        "Float64": 8
+    };
+    var taglist = [
+        "a",
+        "abbr",
+        "address",
+        "area",
+        "article",
+        "aside",
+        "audio",
+        "b",
+        "base",
+        "bdo",
+        "blockquote",
+        "body",
+        "br",
+        "button",
+        "canvas",
+        "caption",
+        "cite",
+        "code",
+        "col",
+        "colgroup",
+        "dd",
+        "del",
+        "dfn",
+        "div",
+        "dl",
+        "dt",
+        "em",
+        "embed",
+        "fieldset",
+        "figcaption",
+        "figure",
+        "footer",
+        "form",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "head",
+        "header",
+        "hr",
+        "i",
+        "iframe",
+        "img",
+        "input",
+        "ins",
+        "kbd",
+        "label",
+        "legend",
+        "li",
+        "link",
+        "map",
+        "mark",
+        "meta",
+        "nav",
+        "noscript",
+        "object",
+        "ol",
+        "optgroup",
+        "option",
+        "p",
+        "param",
+        "pre",
+        "progress",
+        "q",
+        "rp",
+        "rt",
+        "ruby",
+        "s",
+        "samp",
+        "script",
+        "section",
+        "select",
+        "small",
+        "source",
+        "span",
+        "strong",
+        "style",
+        "sub",
+        "sup",
+        "table",
+        "tbody",
+        "td",
+        "textarea",
+        "tfoot",
+        "th",
+        "thead",
+        "time",
+        "title",
+        "tr",
+        "track",
+        "u",
+        "ul",
+        "var",
+        "video"
+    ];
+
+    // FIX
     if (ArrayBuffer.prototype.slice === undefined) {
         ArrayBuffer.prototype.slice = function (start, end) {
             var that = new Uint8Array(this);
@@ -36,19 +162,87 @@
         };
     }
 
-    var numbersandbytes = {
-        "Int8": 1,
-        "Uint8": 1,
-        "Int16": 2,
-        "Uint16": 2,
-        "Int32": 4,
-        "Uint32": 4,
-        "Float32": 4,
-        "Float64": 8
+    Number.isNaN = Number.isNaN || function (value) {
+        return value !== value;
     };
 
+    function typeOf(value) {
+        var type = typeof value;
+
+        if (Array.isArray(value)) {
+            type = "array";
+        } else if (value === null) {
+            type = "null";
+        }
+        return type;
+    }
+
+    // IS
+    function isArray(array) {
+        return typeOf(array) === "array";
+    }
+
+    function isBoolean(boolean) {
+        return typeOf(boolean) === "boolean";
+    }
+
+    function isFunction(func) {
+        return typeOf(func) === "function";
+    }
+
+    function isNull(nul) {
+        return typeOf(nul) === "null";
+    }
+
+    function isNumber(number) {
+        return typeOf(number) === "number" && !Number.isNaN(number);
+    }
+
+    function isObject(object) {
+        return typeOf(object) === "object";
+    }
+
+    function isString(string) {
+        return typeOf(string) === "string";
+    }
+
+    function isUndefined(undef) {
+        return typeOf(undef) === "undefined";
+    }
+
+    // IS - SPECIAL
+    function isArrayLike(object) {
+        return isObject(object) && !isUndefined(object.length) && Object.keys(object).every(function (key) {
+            return key === "length" || isNumber(global.parseInt(key, 10));
+        });
+    }
+
+    function isBuffer(buffer) {
+        return !isUndefined(global.ArrayBuffer) && buffer instanceof ArrayBuffer;
+    }
+
+    function isEmpty(object) {
+        return isObject(object) && Object.keys(object).length === 0;
+    }
+
+    function isGG(object) {
+        return isObject(object) && object.gg === true;
+    }
+
+    function isNaN(nan, noparse, base) {
+        return noparse
+            ? Number.isNaN(nan)
+            : Number.isNaN(global.parseInt(nan, isNumber(base)
+                ? base
+                : 10));
+    }
+
+    function isNode(node) {
+        return isObject(node) && isString(node.nodeName) && isNumber(node.nodeType);
+    }
+
     function isTypedArray(array) {
-        var arraytypes = [
+        var types = [
             "Int8Array",
             "Uint8Array",
             "Uint8ClampedArray",
@@ -61,53 +255,137 @@
         ];
         var type = Object.prototype.toString.call(array).replace(/\[object\s(\w+)\]/, "$1");
 
-        return arraytypes.indexOf(type) > -1;
+        return types.indexOf(type) > -1;
     }
 
-    function getCodesFromString(string) {
+    // TO
+    function toArray(value) {
+        var array;
+
+        if (isGG(value)) {
+            array = value.length() === 1
+                ? [value.raw()]
+                : value.raw();
+        } else if (isBuffer(value)) {
+            array = new Uint8Array(value);
+        } else if (isString(value) || isArray(value) || isArrayLike(value) || isTypedArray(value)) {
+            array = Array.prototype.slice.call(value);
+        } else {
+            array = [value];
+        }
+        return array;
+    }
+
+    function toCamelCase(string) {
+        return isString(string) && string.replace(/-([a-z])/g, function (a) {
+            return a[1].toUpperCase();
+        });
+    }
+
+    function toCodesFromString(string) {
         var codes = [];
 
-        if (typeof string !== "string") {
-            string = "";
-        }
-        string.split("").forEach(function (character) {
-            codes.push(character.charCodeAt(0));
+        toArray(string).forEach(function (char) {
+            codes.push(char.charCodeAt(0));
         });
         return codes;
     }
 
-    function getStringFromCodes(codes) {
+    function toFloat(value, digits) {
+        var float = global.parseFloat(isString(value)
+            ? value.replace(",", "")
+            : value);
+
+        return Number.isNaN(float)
+            ? 0
+            : isNumber(digits)
+                ? float.toFixed(digits)
+                : float;
+    }
+
+    function toHyphenated(string) {
+        return isString(string) && string.replace(/([A-Z])/g, function (a) {
+            return "-" + a.toLowerCase();
+        });
+    }
+
+    function toInt(value, base) {
+        var int = global.parseInt(isString(value)
+            ? value.replace(",", "")
+            : value, isNumber(base)
+                ? base
+                : 10);
+
+        return Number.isNaN(int)
+            ? 0
+            : int;
+    }
+
+    function toUint8(value) {
+        var uint8;
+
+        if (isGG(value)) {
+            uint8 = new Uint8Array(value.length() === 1
+                ? [value.raw()]
+                : value.raw());
+        } else if (isString(value)) {
+            uint8 = new Uint8Array(toCodesFromString(value));
+        } else if (isNumber(value) || isArray(value) || isArrayLike(value) || isTypedArray(value) || isBuffer(value)) {
+            uint8 = new Uint8Array(value);
+        } else {
+            uint8 = new Uint8Array([value]);
+        }
+        return uint8;
+    }
+
+    function toBuffer(value) {
+        return toUint8(value).buffer;
+    }
+
+    function toStringFromCodes(codes) {
         var string = "";
 
-        if (codes === undefined || codes === null) {
-            codes = [];
-        }
-        Array.prototype.slice.call(codes).forEach(function (character) {
-            string += String.fromCharCode(character);
+        toArray(codes).forEach(function (char) {
+            string += String.fromCharCode(char);
         });
         return string;
     }
 
-    function toUint8(array) {
-        if (array === undefined || array === null) {
-            array = 0;
-        } else if (typeof array === "boolean") {
-            array = array === true
-                ? [1]
-                : [0];
-        } else if (typeof array === "string") {
-            array = getCodesFromString(array);
-        }
-        return new Uint8Array(array);
+    // GET
+    function getById(id, object) {
+        return document.getElementById(supplant(id, object));
     }
 
-    function toBuffer(buffer) {
-        if (isTypedArray(buffer)) {
-            buffer = buffer.buffer;
-        } else if (!(buffer instanceof ArrayBuffer)) {
-            buffer = toUint8(buffer).buffer;
+    function getStyle(node, pseudo) {
+        return global.getComputedStyle(node, isUndefined(pseudo)
+            ? null
+            : pseudo);
+    }
+
+    // SET
+    function setImmediate(fn) {
+        if (!isFunction(fn)) {
+            return;
         }
-        return buffer;
+        return global.setTimeout(fn, 0);
+    }
+
+    // SELECT
+    function select(selector, object, node) {
+        return isNode(node)
+            ? node.querySelector(supplant(selector, object))
+            : document.querySelector(supplant(selector, object));
+    }
+
+    function selectAll(selector, object, node) {
+        return isNode(node)
+            ? node.querySelectorAll(supplant(selector, object))
+            : document.querySelectorAll(supplant(selector, object));
+    }
+
+    // MISC
+    function arrSlice(value) {
+        return Array.prototype.slice.call(value);
     }
 
     function betterview(buffer, offset, length) {
@@ -192,15 +470,15 @@
         }
 
         function getString(len, offset) {
-            return getStringFromCodes(getBytes(len, offset));
+            return toStringFromCodes(getBytes(len, offset));
         }
 
         function setString(offset, string) {
-            return setBytes(offset, getCodesFromString(string));
+            return setBytes(offset, toCodesFromString(string));
         }
 
         function writeString(string) {
-            return writeBytes(getCodesFromString(string));
+            return writeBytes(toCodesFromString(string));
         }
 
         function getChar(offset) {
@@ -273,34 +551,45 @@
         return Object.freeze(better);
     }
 
-    betterview.isTypedArray = isTypedArray;
-    betterview.getCodesFromString = getCodesFromString;
-    betterview.getStringFromCodes = getStringFromCodes;
-    betterview.toUint8 = toUint8;
-    betterview.toBuffer = toBuffer;
+    function copy(value) {
+        var c;
 
-    global.betterview = Object.freeze(betterview);
+        if (isObject(value)) {
+            c = {};
+            Object.keys(value).forEach(function (key) {
+                c[key] = copy(value[key]);
+            });
+        } else if (isArray(value)) {
+            c = [];
+            value.forEach(function (v) {
+                c.push(copy(v));
+            });
+        } else {
+            c = value;
+        }
+        return c;
+    }
 
-}(window || this));
-
-//    Title: emitter.js
-//    Author: Jon Cody
-//
-//    This program is free software: you can redistribute it and/or modify
-//    it under the terms of the GNU General Public License as published by
-//    the Free Software Foundation, either version 3 of the License, or
-//    (at your option) any later version.
-//
-//    This program is distributed in the hope that it will be useful,
-//    but WITHOUT ANY WARRANTY; without even the implied warranty of
-//    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//    GNU General Public License for more details.
-//
-//    You should have received a copy of the GNU General Public License
-//    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-(function (global) {
-    "use strict";
+    function each(items, func, thisarg) {
+        if (!isFunction(func)) {
+            return;
+        }
+        if (isUndefined(thisarg)) {
+            thisarg = items;
+        }
+        if (isGG(items)) {
+            items.eachRaw(func);
+        } else if (isNode(items)) {
+            func.call(thisarg, items, 0, items);
+        } else if (isArray(items) || isArrayLike(items) || isTypedArray(items) || isBuffer(items)) {
+            toArray(items).forEach(func, thisarg);
+        } else if (isObject(items)) {
+            Object.keys(items).forEach(function (key) {
+                func.call(thisarg, items[key], key, items);
+            });
+        }
+        return thisarg;
+    }
 
     function emitter(object) {
         object = (object && typeof object === "object")
@@ -424,7 +713,929 @@
         return object;
     }
 
-    global.emitter = Object.freeze(emitter);
+    function equal(one, two) {
+        var result = true;
+
+        if (typeOf(one) !== typeOf(two) || (typeOf(one) !== "array" && typeOf(one) !== "object" && one !== two)) {
+            result = false;
+        } else if (typeOf(one) === "array") {
+            one.forEach(function (val) {
+                if (two.indexOf(val) === -1) {
+                    result = false;
+                }
+            });
+        } else if (typeOf(one) === "object") {
+            Object.keys(one).forEach(function (key) {
+                if (one[key] !== two[key]) {
+                    result = false;
+                }
+            });
+        }
+        return result;
+    }
+
+    function extend(object, add, overwrite) {
+        if (!isObject(object) || !isObject(add)) {
+            return object;
+        }
+        overwrite = isBoolean(overwrite)
+            ? overwrite
+            : true;
+        Object.keys(add).forEach(function (key) {
+            if (overwrite || !object.hasOwnProperty(key)) {
+                object[key] = copy(add[key]);
+            }
+        });
+        return object;
+    }
+
+    function inherits(ctor, superCtor) {
+        if (!isFunction(ctor) || !isFunction(superCtor)) {
+            return ctor;
+        }
+        ctor.ggSuper = superCtor;
+        ctor.prototype = Object.create(superCtor.prototype, {
+            constructor: {
+                value: ctor,
+                enumberable: false,
+                writable: true,
+                configurable: true
+            }
+        });
+        return ctor;
+    }
+
+    function inArray(array, value) {
+        return isArray(array) && array.indexOf(value) > -1;
+    }
+
+    function noop() {
+        return;
+    }
+
+    function supplant(string, object) {
+        function replace(a, b) {
+            var value = object[b];
+
+            return !isUndefined(value)
+                ? value
+                : a;
+        }
+        return (isString(string) && isObject(object))
+            ? string.replace(/\{([^{}]*)\}/g, replace)
+            : string;
+    }
+
+    function uuid() {
+        return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (a) {
+            var rand = Math.random() * 16 | 0;
+            var value = a === "x"
+                ? rand
+                : rand & 0x3 | 0x8;
+
+            return value.toString(16);
+        });
+    }
+
+    // MISC - DOM
+    function create(tag) {
+        return inArray(taglist, tag)
+            ? gg(document.createElement(tag))
+            : null;
+    }
+
+    // GG
+    function gg(mselector, object) {
+        var gobject = {
+            gg: true
+        };
+        var store = [];
+
+        function closure(func, node, arg) {
+            return function (e) {
+                return func.call(null, e, gg(node), arg);
+            };
+        }
+
+        function cloneNodeDeeper(node) {
+            var nodeid;
+            var cloneid;
+            var clone;
+
+            if (isGG(node) && node.length() === 1) {
+                node = node.raw();
+            }
+            if (isNode(node)) {
+                nodeid = global.parseInt(node.getAttribute("data-gg-id"), 10);
+                clone = node.cloneNode(true);
+            }
+            if (!isNumber(nodeid) || !listeners.hasOwnProperty(nodeid)) {
+                return clone;
+            }
+            cloneid = ggid();
+            clone.setAttribute("data-gg-id", cloneid);
+            listeners[cloneid] = {};
+            each(listeners[nodeid], function (list, type) {
+                listeners[cloneid][type] = {};
+                each(list, function (funcarray, funcid) {
+                    var func = funcarray[0];
+                    var bub = funcarray[2];
+                    var arg = funcarray[3];
+                    var newFunc = closure(func, clone, arg);
+
+                    listeners[cloneid][type][funcid] = [func, newFunc, bub, arg];
+                    clone.addEventListener(type, newFunc, bub);
+                });
+            });
+            return clone;
+        }
+
+        if (isGG(mselector)) {
+            return mselector;
+        }
+
+        if (isString(mselector)) {
+            mselector = selectAll(mselector, object);
+        }
+
+        each(mselector, function (node) {
+            if (isNode(node) && node.nodeType < 9) {
+                store.push(node);
+            }
+        });
+
+        gobject.add = function (nodes) {
+            each(nodes, function (node) {
+                if (isNode(node) && node.nodeType < 9) {
+                    store.push(node);
+                }
+            });
+            return gobject;
+        };
+
+        gobject.addClass = function (string) {
+            if (!isString(string)) {
+                return gobject;
+            }
+            each(store, function (node) {
+                string.split(/\s/g).forEach(function (substring) {
+                    var match = new RegExp("(?:^|\\s)" + substring + "(?:$|\\s)", "g");
+
+                    if (!isObject(node.className)) {
+                        node.className = match.test(node.className)
+                            ? node.className
+                            : node.className
+                                ? node.className + " " + substring
+                                : substring;
+                    } else {
+                        node.classList.add(substring);
+                    }
+                });
+            });
+            return gobject;
+        };
+
+        gobject.after = function (item) {
+            var willcopy = store.length > 1;
+
+            each(store, function (node) {
+                each(item, function (sibling) {
+                    if (!isNode(sibling)) {
+                        return;
+                    }
+                    node.parentNode.insertBefore(willcopy
+                        ? cloneNodeDeeper(sibling)
+                        : sibling, node.nextSibling);
+                });
+            });
+            return gobject;
+        };
+
+        gobject.append = function (item) {
+            var willcopy = store.length > 1;
+
+            each(store, function (node) {
+                each(item, function (child) {
+                    if (!isNode(child)) {
+                        return;
+                    }
+                    node.appendChild(willcopy
+                        ? cloneNodeDeeper(child)
+                        : child);
+                });
+            });
+            return gobject;
+        };
+
+        gobject.appendTo = function (item) {
+            var willcopy = toArray(item).length > 1;
+
+            each(store, function (node) {
+                each(item, function (parent) {
+                    if (!isNode(parent)) {
+                        return;
+                    }
+                    parent.appendChild(willcopy
+                        ? cloneNodeDeeper(node)
+                        : node);
+                });
+            });
+            return gobject;
+        };
+
+        gobject.attr = function (name, value) {
+            var attrname = isString(name) && toCamelCase(name);
+            var values;
+
+            if (isObject(name)) {
+                each(name, function (value, key) {
+                    gobject.attr(key, value);
+                });
+            } else if (isArray(name)) {
+                values = {};
+                name.forEach(function (key) {
+                    values[key] = gobject.attr(key);
+                });
+                return values;
+            } else if (isUndefined(value) && attrname) {
+                values = [];
+                each(store, function (node) {
+                    values.push(node[attrname]);
+                });
+                return values.length === 0
+                    ? null
+                    : values.length === 1
+                        ? values[0]
+                        : values;
+            } else if (attrname) {
+                each(store, function (node) {
+                    node[attrname] = value;
+                });
+            }
+            return gobject;
+        };
+
+        gobject.before = function (item) {
+            var willcopy = store.length > 1;
+
+            each(store, function (node) {
+                each(item, function (sibling) {
+                    if (!isNode(sibling)) {
+                        return;
+                    }
+                    node.parentNode.insertBefore(willcopy
+                        ? cloneNodeDeeper(sibling)
+                        : sibling, node);
+                });
+            });
+            return gobject;
+        };
+
+        gobject.children = function () {
+            var nodes = [];
+
+            each(store, function (node) {
+                nodes = nodes.concat(toArray(node.childNodes));
+            });
+            return gg(nodes);
+        };
+
+        gobject.classes = function (string) {
+            var values = [];
+
+            if (isUndefined(string)) {
+                each(store, function (node) {
+                    values.push(node.className);
+                });
+                return values.length === 0
+                    ? null
+                    : values.length === 1
+                        ? values[0]
+                        : values;
+            } else if (isString(string)) {
+                each(store, function (node) {
+                    node.className = string.trim();
+                });
+            }
+            return gobject;
+        };
+
+        gobject.clone = function (deep, deeper) {
+            var nodes = [];
+
+            deep = isBoolean(deep)
+                ? deep
+                : false;
+            deeper = isBoolean(deeper)
+                ? deeper
+                : false;
+            each(store, function (node) {
+                nodes.push(deeper
+                    ? cloneNodeDeeper(node)
+                    : node.cloneNode(deep));
+            });
+            return gg(nodes);
+        };
+
+        gobject.create = function (tag) {
+            return inArray(taglist, tag)
+                ? gg(document.createElement(tag)).appendTo(gobject)
+                : gobject;
+        };
+
+        gobject.data = function (name, value) {
+            var dataname = isString(name) && (name.length < 4 || name.slice(0, 4) !== "data")
+                ? toHyphenated("data-" + name)
+                : toHyphenated(name);
+            var values;
+
+            if (isObject(name)) {
+                each(name, function (value, key) {
+                    gobject.data(key, value);
+                });
+            } else if (isArray(name)) {
+                values = {};
+                name.forEach(function (key) {
+                    values[key] = gobject.data(key);
+                });
+                return values;
+            } else if (isUndefined(value) && dataname) {
+                values = [];
+                each(store, function (node) {
+                    values.push(node.getAttribute(dataname));
+                });
+                return values.length === 0
+                    ? null
+                    : values.length === 1
+                        ? values[0]
+                        : values;
+            } else if (dataname) {
+                each(store, function (node) {
+                    node.setAttribute(dataname, value);
+                });
+            }
+            return gobject;
+        };
+
+        gobject.each = function (func) {
+            store.forEach(function (node, index, thisarg) {
+                func.call(thisarg, gg(node), index, thisarg);
+            }, gobject);
+            return gobject;
+        };
+
+        gobject.eachRaw = function (func) {
+            store.forEach(func, gobject);
+            return gobject;
+        };
+
+        gobject.get = function (index) {
+            if (isNumber(index) && index >= 0 && index < store.length) {
+                return gg(store[index]);
+            }
+            return gobject;
+        };
+
+        gobject.hasClass = function (string) {
+            var values = [];
+
+            if (!isString(string)) {
+                return false;
+            }
+            each(store, function (node) {
+                values.push(string.split(/\s/g).every(function (substring) {
+                    var match = new RegExp("(?:^|\\s)" + substring + "(?:$|\\s)", "g");
+
+                    if (!isObject(node.className)) {
+                        return match.test(node.className);
+                    } else {
+                        return node.classList.contains(substring);
+                    }
+                }));
+            });
+            return values.length === 0
+                ? null
+                : values.length === 1
+                    ? values[0]
+                    : values;
+        };
+
+        gobject.html = function (string) {
+            var values = [];
+
+            if (isUndefined(string)) {
+                each(store, function (node) {
+                    values.push(node.innerHTML);
+                });
+                return values.length === 0
+                    ? null
+                    : values.length === 1
+                        ? values[0]
+                        : values;
+            } else if (isString(string) || isNumber(string)) {
+                each(store, function (node) {
+                    node.innerHTML = string;
+                });
+            }
+            return gobject;
+        };
+
+        gobject.insert = (function () {
+            var positions = ["beforebegin", "afterbegin", "beforeend", "afterend"];
+
+            return function (pos, item) {
+                if (!isString(item)) {
+                    return gobject;
+                }
+                if (!inArray(positions, pos)) {
+                    pos = "beforeend";
+                }
+                each(store, function (node) {
+                    node.insertAdjacentHTML(pos, item);
+                });
+                return gobject;
+            };
+        }());
+
+        gobject.length = function () {
+            return store.length;
+        };
+
+        gobject.off = function (type, func, bub) {
+            if (!isString(type)) {
+                return gobject;
+            }
+            bub = isBoolean(bub)
+                ? bub
+                : false;
+            each(store, function (node) {
+                var nodeid = global.parseInt(node.getAttribute("data-gg-id"), 10);
+                var funcid = isFunction(func) && func.ggid;
+
+                if (!isNumber(nodeid) || !listeners.hasOwnProperty(nodeid) || !listeners[nodeid].hasOwnProperty(type)) {
+                    return gobject;
+                }
+                if (isUndefined(func)) {
+                    each(listeners[nodeid][type], function (funcarray, funcid, list) {
+                        node.removeEventListener(type, funcarray[1], bub);
+                    });
+                    delete listeners[nodeid][type];
+                } else if (isNumber(funcid) && listeners[nodeid][type].hasOwnProperty(funcid)) {
+                    node.removeEventListener(type, listeners[nodeid][type][funcid][1], bub);
+                    delete listeners[nodeid][type][funcid];
+                }
+            });
+            return gobject;
+        };
+
+        gobject.on = function (type, func, bub, arg) {
+            var funcid;
+            var newFunc;
+
+            if (!isString(type) || !isFunction(func)) {
+                return gobject;
+            }
+            bub = isBoolean(bub)
+                ? bub
+                : false;
+            funcid = isNumber(func.ggid)
+                ? func.ggid
+                : ggid();
+            func.ggid = funcid;
+            each(store, function (node) {
+                var nodeid = !isNumber(global.parseInt(node.getAttribute("data-gg-id"), 10))
+                    ? ggid()
+                    : global.parseInt(node.getAttribute("data-gg-id"), 10);
+
+                node.setAttribute("data-gg-id", nodeid);
+                if (!listeners.hasOwnProperty(nodeid)) {
+                    listeners[nodeid] = {};
+                }
+                if (!listeners[nodeid].hasOwnProperty(type)) {
+                    listeners[nodeid][type] = {};
+                }
+                if (listeners[nodeid][type].hasOwnProperty(funcid)) {
+                    node.removeEventListener(type, listeners[nodeid][type][funcid][1], bub);
+                }
+                newFunc = closure(func, node, arg);
+                listeners[nodeid][type][funcid] = [func, newFunc, bub, arg];
+                node.addEventListener(type, newFunc, bub);
+            });
+            return gobject;
+        };
+
+        gobject.once = function (type, func, bub, arg) {
+            function handler(node, arg) {
+                return function onetime(e) {
+                    func.call(null, e, gg(node), arg);
+                    node.removeEventListener(type, onetime, bub);
+                };
+            }
+            if (!isString(type) || !isFunction(func)) {
+                return gobject;
+            }
+            bub = isBoolean(bub)
+                ? bub
+                : false;
+            each(store, function (node) {
+                node.addEventListener(type, handler(node, arg), bub);
+            });
+            return gobject;
+        };
+
+        gobject.parents = function () {
+            var nodes = [];
+
+            each(store, function (node) {
+                nodes.push(node.parentNode);
+            });
+            return gg(nodes);
+        };
+
+        gobject.prepend = function (item) {
+            var willcopy = store.length > 1;
+
+            each(store, function (node) {
+                each(item, function (child) {
+                    if (!isNode(child)) {
+                        return;
+                    }
+                    node.insertBefore(willcopy
+                        ? cloneNodeDeeper(child)
+                        : child, node.firstChild);
+                });
+            });
+            return gobject;
+        };
+
+        gobject.prependTo = function (item) {
+            var willcopy = toArray(item).length > 1;
+
+            each(store, function (node) {
+                each(item, function (parent) {
+                    if (!isNode(parent)) {
+                        return;
+                    }
+                    parent.insertBefore(willcopy
+                        ? cloneNodeDeeper(node)
+                        : node, parent.firstChild);
+                });
+            });
+            return gobject;
+        };
+
+        gobject.prop = function (name, value) {
+            var propname = isString(name) && toCamelCase(name);
+            var values;
+
+            if (isObject(name)) {
+                each(name, function (value, key) {
+                    gobject.prop(key, value);
+                });
+            } else if (isArray(name)) {
+                values = {};
+                name.forEach(function (key) {
+                    values[key] = gobject.prop(key);
+                });
+                return values;
+            } else if (isUndefined(value) && propname) {
+                values = [];
+                each(store, function (node) {
+                    values.push(node.style[propname] || global.getComputedStyle(node, null).getPropertyValue(propname));
+                });
+                return values.length === 0
+                    ? null
+                    : values.length === 1
+                        ? values[0]
+                        : values;
+            } else if (propname) {
+                each(store, function (node) {
+                    node.style[propname] = value;
+                });
+            }
+            return gobject;
+        };
+        gobject.css = gobject.prop;
+        gobject.style = gobject.prop;
+
+        gobject.raw = function (index) {
+            if (isNumber(index) && index >= 0 && index < store.length) {
+                return store[index];
+            }
+            return store.length === 1
+                ? store[0]
+                : store;
+        };
+
+        gobject.remove = function (item) {
+            if (isUndefined(item)) {
+                each(store, function (node) {
+                    if (node.parentNode) {
+                        node.parentNode.removeChild(node);
+                    }
+                });
+            } else {
+                each(store, function (node) {
+                    each(item, function (child) {
+                        if (!isNode(child) || !node.contains(child)) {
+                            return;
+                        }
+                        if (child.parentNode) {
+                            node.removeChild(child);
+                        }
+                    });
+                });
+            }
+            return gobject;
+        };
+
+        gobject.remAttr = function (name) {
+            var attrname = isString(name) && toCamelCase(name);
+
+            if (isObject(name)) {
+                each(name, function (value, key) {
+                    gobject.remAttr(key);
+                });
+            } else if (isArray(name)) {
+                name.forEach(function (key) {
+                    gobject.remAttr(key);
+                });
+            } else if (attrname) {
+                each(store, function (node) {
+                    node.removeAttribute(attrname);
+                });
+            }
+            return gobject;
+        };
+
+        gobject.remClass = function (string) {
+            if (!isString(string)) {
+                return gobject;
+            }
+            each(store, function (node) {
+                string.split(/\s/).forEach(function (substring) {
+                    var match = new RegExp("(?:^|\\s)" + substring + "(?:$|\\s)", "g");
+
+                    if (!isObject(node.className)) {
+                        node.className = node.className.replace(match, " ").trim();
+                    } else {
+                        node.classList.remove(substring);
+                    }
+                });
+            });
+            return gobject;
+        };
+
+        gobject.remData = function (name) {
+            var dataname = isString(name) && (name.length < 4 || name.slice(0, 4) !== "data")
+                ? toHyphenated("data-" + name)
+                : toHyphenated(name);
+
+            if (isObject(name)) {
+                each(name, function (value, key) {
+                    gobject.remData(key);
+                });
+            } else if (isArray(name)) {
+                name.forEach(function (key) {
+                    gobject.remData(key);
+                });
+            } else if (dataname) {
+                each(store, function (node) {
+                    node.removeAttribute(dataname);
+                });
+            }
+            return gobject;
+        };
+
+        gobject.remHtml = function () {
+            each(store, function (node) {
+                node.innerHTML = "";
+            });
+            return gobject;
+        };
+
+        gobject.remProp = function (name) {
+            var propname = isString(name) && toCamelCase(name);
+
+            if (isObject(name)) {
+                each(name, function (value, key) {
+                    gobject.remProp(key);
+                });
+            } else if (isArray(name)) {
+                name.forEach(function (key) {
+                    gobject.remProp(key);
+                });
+            } else if (propname) {
+                each(store, function (node) {
+                    node.style.removeProperty(propname);
+                });
+            }
+            return gobject;
+        };
+        gobject.remCss = gobject.remProp;
+        gobject.remStyle = gobject.remProp;
+
+        gobject.remText = function remText() {
+            each(store, function (node) {
+                node.textContent = "";
+            });
+            return gobject;
+        };
+
+        gobject.select = function (selector, object) {
+            var nodes = [];
+
+            each(store, function (node) {
+                nodes = nodes.concat(toArray(select(selector, object, node)));
+            });
+            return gg(nodes);
+        };
+
+        gobject.selectAll = function (selector, object) {
+            var nodes = [];
+
+            each(store, function (node) {
+                nodes = nodes.concat(toArray(selectAll(selector, object, node)));
+            });
+            return gg(nodes);
+        };
+
+        gobject.subtract = function (index) {
+            if (isNumber(index) && index >= 0 && index < store.length) {
+                store.splice(index, 1);
+            }
+            return gobject;
+        };
+
+        gobject.text = function (string) {
+            var values = [];
+
+            if (isUndefined(string)) {
+                each(store, function (node) {
+                    values.push(node.textContent);
+                });
+                return values.length === 0
+                    ? null
+                    : values.length === 1
+                        ? values[0]
+                        : values;
+            } else if (isString(string) || isNumber(string)) {
+                each(store, function (node) {
+                    node.textContent = string;
+                });
+            }
+            return gobject;
+        };
+
+        gobject.togClass = function (string) {
+            if (!isString(string)) {
+                return gobject;
+            }
+            each(store, function (node) {
+                string.split(/\s/).forEach(function (substring) {
+                    var match = new RegExp("(?:^|\\s)" + substring + "(?:$|\\s)", "g");
+
+                    if (!isObject(node.className)) {
+                        node.className = match.test(node.className)
+                            ? node.className.replace(match, " ").trim()
+                            : node.className
+                                ? node.className + " " + substring
+                                : substring;
+                    } else {
+                        node.classList.toggle(substring);
+                    }
+                });
+            });
+            return gobject;
+        };
+
+        return Object.freeze(gobject);
+    }
+
+    // UI
+    keyboardHandler = (function () {
+        function keyDown(options, handlers) {
+            return function (e) {
+                var keycode = e.keyCode;
+
+                if (options.preventDefault) {
+                    e.preventDefault();
+                }
+                if (isNumber(keycode) && handlers.hasOwnProperty(keycode)) {
+                    handlers[keycode](e);
+                }
+            };
+        }
+        return function (options) {
+            var handlers = {};
+            var listener;
+
+            options = extend({}, options);
+            each(options, function (handler, key) {
+                var keycode = global.parseInt(key, 10);
+
+                if (isFunction(handler) && isNumber(keycode)) {
+                    handlers[keycode] = handler;
+                }
+            });
+            listener = keyDown(options, handlers);
+            keyboardListeners.push(listener);
+            gg(document.body).on("keydown", listener, false);
+        };
+    }());
+
+    mouseHandler = (function () {
+        function mouseDown(options, handlers) {
+            return function (e) {
+                var keycode = e.button;
+
+                if (options.preventDefault) {
+                    e.preventDefault();
+                }
+                if (isNumber(keycode) && handlers.hasOwnProperty(keycode)) {
+                    handlers[keycode](e);
+                }
+            };
+        }
+        return function (options) {
+            var handlers = {};
+            var listener;
+
+            options = extend({}, options);
+            each(options, function (handler, key) {
+                var keycode = global.parseInt(key, 10);
+
+                if (isFunction(handler) && isNumber(keycode)) {
+                    handlers[keycode] = handler;
+                }
+            });
+            listener = mouseDown(options, handlers);
+            mouseListeners.push(listener);
+            gg(document.body).on("mousedown", listener, false);
+        };
+    }());
+
+    function removeKeyboardHandlers() {
+        keyboardListeners.forEach(function (listener) {
+            gg(document.body).off("keydown", listener);
+        });
+    }
+
+    function removeMouseHandlers() {
+        mouseListeners.forEach(function (listener) {
+            gg(document.body).off("mousedown", listener);
+        });
+    }
+
+    gg.typeOf = typeOf;
+    gg.isArray = isArray;
+    gg.isBoolean = isBoolean;
+    gg.isFunction = isFunction;
+    gg.isNull = isNull;
+    gg.isNumber = isNumber;
+    gg.isObject = isObject;
+    gg.isString = isString;
+    gg.isUndefined = isUndefined;
+    gg.isArrayLike = isArrayLike;
+    gg.isBuffer = isBuffer;
+    gg.isEmpty = isEmpty;
+    gg.isGG = isGG;
+    gg.isNaN = isNaN;
+    gg.isNode = isNode;
+    gg.isTypedArray = isTypedArray;
+    gg.toArray = toArray;
+    gg.toCamelCase = toCamelCase;
+    gg.toCodesFromString = toCodesFromString;
+    gg.toFloat = toFloat;
+    gg.toHyphenated = toHyphenated;
+    gg.toInt = toInt;
+    gg.toUint8 = toUint8;
+    gg.toBuffer = toBuffer;
+    gg.toStringFromCodes = toStringFromCodes;
+    gg.getById = getById;
+    gg.getStyle = getStyle;
+    gg.setImmediate = setImmediate;
+    gg.select = select;
+    gg.selectAll = selectAll;
+    gg.arrSlice = arrSlice;
+    gg.betterview = betterview;
+    gg.copy = copy;
+    gg.each = each;
+    gg.emitter = emitter;
+    gg.equal = equal;
+    gg.extend = extend;
+    gg.inherits = inherits;
+    gg.inArray = inArray;
+    gg.noop = noop;
+    gg.supplant = supplant;
+    gg.uuid = uuid;
+    gg.create = create;
+    gg.keyboardHandler = keyboardHandler;
+    gg.mouseHandler = mouseHandler;
+    gg.removeKeyboardHandlers = removeKeyboardHandlers;
+    gg.removeMouseHandlers = removeMouseHandlers;
+
+    global.gg = Object.freeze(gg);
 
 }(window || this));
 
@@ -456,13 +1667,13 @@
     var reserved = ["open", "close", "joined", "join", "leave", "left"];
 
     function getRoom(name) {
-        var room = emitter();
+        var room = gg.emitter();
         var store = {
             open: false,
             id: "",
             members: []
         };
-        var join_data;
+        var initdata;
 
         if (typeof name !== "string") {
             return console.log("name is not a string");
@@ -511,7 +1722,7 @@
             if (typeof dst !== "string") {
                 dst = "";
             }
-            data = betterview(name.length + event.length + dst.length + src.length + (payload.byteLength || payload.length || 0) + 20)
+            data = gg.betterview(name.length + event.length + dst.length + src.length + (payload.byteLength || payload.length || 0) + 20)
                 .writeUint32(name.length).writeString(name)
                 .writeUint32(event.length).writeString(event)
                 .writeUint32(dst.length).writeString(dst)
@@ -546,7 +1757,7 @@
             if (store.open === false) {
                 return console.log("socket is closed");
             }
-            data = betterview(name.length + "leave".length + (store.id.length * 2) + 20)
+            data = gg.betterview(name.length + "leave".length + (store.id.length * 2) + 20)
                 .writeUint32(name.length).writeString(name)
                 .writeUint32("leave".length).writeString("leave")
                 .writeUint32(0)
@@ -562,10 +1773,10 @@
             switch (packet.event) {
             case "join":
                 store.id = packet.src;
-                store.members = JSON.parse(betterview.getStringFromCodes(packet.payload));
+                store.members = JSON.parse(gg.toStringFromCodes(packet.payload));
                 store.open = true;
                 room.emit("open");
-                data = betterview(name.length + "joined".length + (store.id.length * 2) + 20)
+                data = gg.betterview(name.length + "joined".length + (store.id.length * 2) + 20)
                     .writeUint32(name.length).writeString(name)
                     .writeUint32("joined".length).writeString("joined")
                     .writeUint32(0)
@@ -574,7 +1785,7 @@
                 socket.send(data.seek(0).getBytes());
                 break;
             case "joined":
-                packet.payload = betterview.getStringFromCodes(packet.payload);
+                packet.payload = gg.toStringFromCodes(packet.payload);
                 index = store.members.indexOf(packet.payload);
                 if (index === -1) {
                     store.members.push(packet.payload);
@@ -582,7 +1793,7 @@
                 }
                 break;
             case "leave":
-                data = betterview(name.length + "left".length + (store.id.length * 2) + 20)
+                data = gg.betterview(name.length + "left".length + (store.id.length * 2) + 20)
                     .writeUint32(name.length).writeString(name)
                     .writeUint32("left".length).writeString("left")
                     .writeUint32(0)
@@ -592,7 +1803,7 @@
                 room.emit("close");
                 break;
             case "left":
-                packet.payload = betterview.getStringFromCodes(packet.payload);
+                packet.payload = gg.toStringFromCodes(packet.payload);
                 index = store.members.indexOf(packet.payload);
                 if (index !== -1) {
                     store.members.splice(index, 1);
@@ -607,13 +1818,13 @@
         rooms[name] = room;
 
         if (name !== "root") {
-            join_data = betterview(name.length + "join".length + (store.id.length * 2) + 20)
+            initdata = gg.betterview(name.length + "join".length + (store.id.length * 2) + 20)
                 .writeUint32(name.length).writeString(name)
                 .writeUint32("join".length).writeString("join")
                 .writeUint32(0)
                 .writeUint32(store.id.length).writeString(store.id)
                 .writeUint32(store.id.length).writeString(store.id);
-            socket.send(join_data.seek(0).getBytes());
+            socket.send(initdata.seek(0).getBytes());
         } else {
             room.purge = function () {
                 Object.keys(rooms).forEach(function (name) {
@@ -637,7 +1848,7 @@
         socket.binaryType = "arraybuffer";
 
         socket.onmessage = function (e) {
-            var data = betterview(e.data);
+            var data = gg.betterview(e.data);
             var packet = {
                 room: data.getString(data.getUint32()),
                 event: data.getString(data.getUint32()),

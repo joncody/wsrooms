@@ -26,13 +26,13 @@
     var reserved = ["open", "close", "joined", "join", "leave", "left"];
 
     function getRoom(name) {
-        var room = emitter();
+        var room = gg.emitter();
         var store = {
             open: false,
             id: "",
             members: []
         };
-        var join_data;
+        var initdata;
 
         if (typeof name !== "string") {
             return console.log("name is not a string");
@@ -81,7 +81,7 @@
             if (typeof dst !== "string") {
                 dst = "";
             }
-            data = betterview(name.length + event.length + dst.length + src.length + (payload.byteLength || payload.length || 0) + 20)
+            data = gg.betterview(name.length + event.length + dst.length + src.length + (payload.byteLength || payload.length || 0) + 20)
                 .writeUint32(name.length).writeString(name)
                 .writeUint32(event.length).writeString(event)
                 .writeUint32(dst.length).writeString(dst)
@@ -116,7 +116,7 @@
             if (store.open === false) {
                 return console.log("socket is closed");
             }
-            data = betterview(name.length + "leave".length + (store.id.length * 2) + 20)
+            data = gg.betterview(name.length + "leave".length + (store.id.length * 2) + 20)
                 .writeUint32(name.length).writeString(name)
                 .writeUint32("leave".length).writeString("leave")
                 .writeUint32(0)
@@ -132,10 +132,10 @@
             switch (packet.event) {
             case "join":
                 store.id = packet.src;
-                store.members = JSON.parse(betterview.getStringFromCodes(packet.payload));
+                store.members = JSON.parse(gg.toStringFromCodes(packet.payload));
                 store.open = true;
                 room.emit("open");
-                data = betterview(name.length + "joined".length + (store.id.length * 2) + 20)
+                data = gg.betterview(name.length + "joined".length + (store.id.length * 2) + 20)
                     .writeUint32(name.length).writeString(name)
                     .writeUint32("joined".length).writeString("joined")
                     .writeUint32(0)
@@ -144,7 +144,7 @@
                 socket.send(data.seek(0).getBytes());
                 break;
             case "joined":
-                packet.payload = betterview.getStringFromCodes(packet.payload);
+                packet.payload = gg.toStringFromCodes(packet.payload);
                 index = store.members.indexOf(packet.payload);
                 if (index === -1) {
                     store.members.push(packet.payload);
@@ -152,7 +152,7 @@
                 }
                 break;
             case "leave":
-                data = betterview(name.length + "left".length + (store.id.length * 2) + 20)
+                data = gg.betterview(name.length + "left".length + (store.id.length * 2) + 20)
                     .writeUint32(name.length).writeString(name)
                     .writeUint32("left".length).writeString("left")
                     .writeUint32(0)
@@ -162,7 +162,7 @@
                 room.emit("close");
                 break;
             case "left":
-                packet.payload = betterview.getStringFromCodes(packet.payload);
+                packet.payload = gg.toStringFromCodes(packet.payload);
                 index = store.members.indexOf(packet.payload);
                 if (index !== -1) {
                     store.members.splice(index, 1);
@@ -177,13 +177,13 @@
         rooms[name] = room;
 
         if (name !== "root") {
-            join_data = betterview(name.length + "join".length + (store.id.length * 2) + 20)
+            initdata = gg.betterview(name.length + "join".length + (store.id.length * 2) + 20)
                 .writeUint32(name.length).writeString(name)
                 .writeUint32("join".length).writeString("join")
                 .writeUint32(0)
                 .writeUint32(store.id.length).writeString(store.id)
                 .writeUint32(store.id.length).writeString(store.id);
-            socket.send(join_data.seek(0).getBytes());
+            socket.send(initdata.seek(0).getBytes());
         } else {
             room.purge = function () {
                 Object.keys(rooms).forEach(function (name) {
@@ -207,7 +207,7 @@
         socket.binaryType = "arraybuffer";
 
         socket.onmessage = function (e) {
-            var data = betterview(e.data);
+            var data = gg.betterview(e.data);
             var packet = {
                 room: data.getString(data.getUint32()),
                 event: data.getString(data.getUint32()),

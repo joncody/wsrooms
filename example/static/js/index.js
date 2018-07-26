@@ -12,7 +12,7 @@
     });
 
     socket.on("hello", function (msg) {
-        console.log(betterview.getStringFromCodes(msg));
+        console.log(gg.toStringFromCodes(msg));
     });
 
     global.socket = socket;
