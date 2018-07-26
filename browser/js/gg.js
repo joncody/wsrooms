@@ -17,6 +17,118 @@
 (function (global) {
     "use strict";
 
+    var ease = Object.freeze({
+        linearTween: function (t, b, c, d) {
+            return c * t / d + b;
+        },
+        easeInQuad: function (t, b, c, d) {
+            t /= d;
+            return c * t * t + b;
+        },
+        easeOutQuad: function (t, b, c, d) {
+            t /= d;
+            return -c * t * (t - 2) + b;
+        },
+        easeInOutQuad: function (t, b, c, d) {
+            t /= d / 2;
+            if (t < 1) {
+                return c / 2 * t * t + b;
+            }
+            t -= 1;
+            return -c / 2 * (t * (t - 2) - 1) + b;
+        },
+        easeInCubic: function (t, b, c, d) {
+            t /= d;
+            return c * t * t * t + b;
+        },
+        easeOutCubic: function (t, b, c, d) {
+            t /= d;
+            t -= 1;
+            return c * (t * t * t + 1) + b;
+        },
+        easeInOutCubic: function (t, b, c, d) {
+            t /= d / 2;
+            if (t < 1) {
+                return c / 2 * t * t * t + b;
+            }
+            t -= 2;
+            return c / 2 * (t * t * t + 2) + b;
+        },
+        easeInQuart: function (t, b, c, d) {
+            t /= d;
+            return c * t * t * t * t + b;
+        },
+        easeOutQuart: function (t, b, c, d) {
+            t /= d;
+            t -= 1;
+            return -c * (t * t * t * t - 1) + b;
+        },
+        easeInOutQuart: function (t, b, c, d) {
+            t /= d / 2;
+            if (t < 1) {
+                return c / 2 * t * t * t * t + b;
+            }
+            t -= 2;
+            return -c / 2 * (t * t * t * t - 2) + b;
+        },
+        easeInQuint: function (t, b, c, d) {
+            t /= d;
+            return c * t * t * t * t * t + b;
+        },
+        easeOutQuint: function (t, b, c, d) {
+            t /= d;
+            t -= 1;
+            return c * (t * t * t * t * t + 1) + b;
+        },
+        easeInOutQuint: function (t, b, c, d) {
+            t /= d / 2;
+            if (t < 1) {
+                return c / 2 * t * t * t * t * t + b;
+            }
+            t -= 2;
+            return c / 2 * (t * t * t * t * t + 2) + b;
+        },
+        easeInSine: function (t, b, c, d) {
+            return -c * Math.cos(t / d * (Math.PI / 2)) + c + b;
+        },
+        easeOutSine: function (t, b, c, d) {
+            return c * Math.sin(t / d * (Math.PI / 2)) + b;
+        },
+        easeInOutSine: function (t, b, c, d) {
+            return -c / 2 * (Math.cos(Math.PI * t / d) - 1) + b;
+        },
+        easeInExpo: function (t, b, c, d) {
+            return c * Math.pow(2, 10 * (t / d - 1) ) + b;
+        },
+        easeOutExpo: function (t, b, c, d) {
+            return c * (-Math.pow(2, -10 * t / d) + 1) + b;
+        },
+        easeInOutExpo: function (t, b, c, d) {
+            t /= d / 2;
+            if (t < 1) {
+                return c / 2 * Math.pow(2, 10 * (t - 1)) + b;
+            }
+            t -= 1;
+            return c / 2 * (-Math.pow(2, -10 * t) + 2) + b;
+        },
+        easeInCirc: function (t, b, c, d) {
+            t /= d;
+            return -c * (Math.sqrt(1 - t * t) - 1) + b;
+        },
+        easeOutCirc: function (t, b, c, d) {
+            t /= d;
+            t -= 1;
+            return c * Math.sqrt(1 - t * t) + b;
+        },
+        easeInOutCirc: function (t, b, c, d) {
+            t /= d / 2;
+            if (t < 1) {
+                return -c / 2 * (Math.sqrt(1 - t * t) - 1) + b;
+            }
+            t -= 2;
+            return c / 2 * (Math.sqrt(1 - t * t) + 1) + b;
+        }
+    });
     var ggid = (function () {
         var id = 0;
         var maxint = Math.pow(2, 53) - 1;
@@ -33,16 +145,6 @@
     var listeners = {};
     var mouseHandler;
     var mouseListeners = [];
-    var numbersandbytes = {
-        "Int8": 1,
-        "Uint8": 1,
-        "Int16": 2,
-        "Uint16": 2,
-        "Int32": 4,
-        "Uint32": 4,
-        "Float32": 4,
-        "Float64": 8
-    };
     var taglist = [
         "a",
         "abbr",
@@ -356,6 +458,28 @@
         return document.getElementById(supplant(id, object));
     }
 
+    function getPosition(el) {
+        var pos = {
+            x: 0,
+            y: 0
+        };
+
+        if (!isNode(el)) {
+            return;
+        }
+        while (el) {
+            if (el.nodeName.toLowerCase() === "body") {
+                pos.x += (el.offsetLeft - (el.scrollLeft || document.documentElement.scrollLeft) + el.clientLeft);
+                pos.y += (el.offsetTop - (el.scrollTop || document.documentElement.scrollTop) + el.clientTop);
+            } else {
+                pos.x += (el.offsetLeft - el.scrollLeft + el.clientLeft);
+                pos.y += (el.offsetTop - el.scrollTop + el.clientTop);
+            }
+            el = el.offsetParent;
+        }
+        return pos;
+    }
+
     function getStyle(node, pseudo) {
         return global.getComputedStyle(node, isUndefined(pseudo)
             ? null
@@ -389,6 +513,16 @@
     }
 
     function betterview(buffer, offset, length) {
+        var numbersandbytes = {
+            "Int8": 1,
+            "Uint8": 1,
+            "Int16": 2,
+            "Uint16": 2,
+            "Int32": 4,
+            "Uint32": 4,
+            "Float32": 4,
+            "Float64": 8
+        };
         var better = {};
         var store = {};
 
@@ -539,7 +673,6 @@
         better.getChar = getChar;
         better.setChar = setChar;
         better.writeChar = writeChar;
-
         Object.keys(numbersandbytes).forEach(function (type) {
             var bytes = numbersandbytes[type];
 
@@ -547,7 +680,6 @@
             better["set" + type] = setNumber(type, bytes);
             better["write" + type] = writeNumber(type, bytes);
         });
-
         return Object.freeze(better);
     }
 
@@ -802,6 +934,56 @@
         return inArray(taglist, tag)
             ? gg(document.createElement(tag))
             : null;
+    }
+
+    function scrollIntoView(el) {
+        var relativeTo = document.body;
+        var animation;
+        var max = relativeTo.scrollHeight - global.innerHeight;
+        var current = 0;
+        var start = relativeTo.scrollTop;
+        var end = relativeTo.scrollTop + getPosition(el).y > max
+            ? max
+            : relativeTo.scrollTop + getPosition(el).y;
+        var framerate = 60 / 1000;
+        var duration = 1200;
+
+        function step() {
+            var newval;
+
+            if (current >= framerate * duration) {
+                return global.cancelAnimationFrame(animation);
+            }
+            current += 1;
+            newval = ease.easeInOutSine(current, start, end - start, framerate * duration);
+            relativeTo.scrollTop = newval;
+            animation = global.requestAnimationFrame(step);
+        }
+
+        animation = global.requestAnimationFrame(step);
+    }
+
+    function scrollToTop(el) {
+        var animation;
+        var current = 0;
+        var start = el.scrollTop;
+        var end = 0;
+        var framerate = 60 / 1000;
+        var duration = 1200;
+
+        function step() {
+            var newval;
+
+            if (current >= framerate * duration) {
+                return global.cancelAnimationFrame(animation);
+            }
+            current += 1;
+            newval = ease.easeInOutSine(current, start, end - start, framerate * duration);
+            el.scrollTop = newval;
+            animation = global.requestAnimationFrame(step);
+        }
+
+        animation = global.requestAnimationFrame(step);
     }
 
     // GG
@@ -1613,6 +1795,7 @@
     gg.toBuffer = toBuffer;
     gg.toStringFromCodes = toStringFromCodes;
     gg.getById = getById;
+    gg.getPosition = getPosition;
     gg.getStyle = getStyle;
     gg.setImmediate = setImmediate;
     gg.select = select;
@@ -1621,6 +1804,7 @@
     gg.betterview = betterview;
     gg.copy = copy;
     gg.each = each;
+    gg.ease = ease;
     gg.emitter = emitter;
     gg.equal = equal;
     gg.extend = extend;
@@ -1630,6 +1814,8 @@
     gg.supplant = supplant;
     gg.uuid = uuid;
     gg.create = create;
+    gg.scrollIntoView = scrollIntoView;
+    gg.scrollToTop = scrollToTop;
     gg.keyboardHandler = keyboardHandler;
     gg.mouseHandler = mouseHandler;
     gg.removeKeyboardHandlers = removeKeyboardHandlers;
