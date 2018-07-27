@@ -246,7 +246,7 @@
         "video"
     ];
 
-    // FIX
+    // FIXES
     if (ArrayBuffer.prototype.slice === undefined) {
         ArrayBuffer.prototype.slice = function (start, end) {
             var that = new Uint8Array(this);
@@ -264,6 +264,10 @@
             }
             return result;
         };
+    }
+
+    function arrSlice(value, begin, end) {
+        return Array.prototype.slice.call(value, begin, end);
     }
 
     Number.isNaN = Number.isNaN || function (value) {
@@ -370,10 +374,10 @@
             array = value.length() === 1
                 ? [value.raw()]
                 : value.raw();
-        } else if (isBuffer(value)) {
-            array = new Uint8Array(value);
-        } else if (isString(value) || isArray(value) || isArrayLike(value) || isTypedArray(value)) {
-            array = Array.prototype.slice.call(value);
+        } else if (isNumber(value) || isBuffer(value)) {
+            array = arrSlice(new Uint8Array(value));
+        } else if (isString(value) || isArray(value) || isArrayLike(value) || isTypedArray(value) || isBuffer(value)) {
+            array = arrSlice(value);
         } else {
             array = [value];
         }
@@ -413,11 +417,11 @@
         });
     }
 
-    function toInt(value, base) {
+    function toInt(value, radix) {
         var int = global.parseInt(isString(value)
             ? value.replace(",", "")
-            : value, isNumber(base)
-                ? base
+            : value, isNumber(radix)
+                ? radix
                 : 10);
 
         return Number.isNaN(int)
@@ -456,10 +460,6 @@
     }
 
     // MISC
-    function arrSlice(value) {
-        return Array.prototype.slice.call(value);
-    }
-
     function betterview(buffer, offset, length) {
         var numbersandbytes = {
             "Int8": 1,
@@ -660,12 +660,12 @@
         if (isGG(items)) {
             items.eachRaw(func);
         } else if (isNode(items)) {
-            func.call(thisarg, items, 0, items);
+            func.call(thisarg, items, 0, thisarg);
         } else if (isArray(items) || isArrayLike(items) || isTypedArray(items) || isBuffer(items)) {
             toArray(items).forEach(func, thisarg);
         } else if (isObject(items)) {
             Object.keys(items).forEach(function (key) {
-                func.call(thisarg, items[key], key, items);
+                func.call(thisarg, items[key], key, thisarg);
             });
         }
         return thisarg;
@@ -1898,6 +1898,7 @@
         cdb = null;
     }
 
+    gg.arrSlice = arrSlice;
     gg.typeOf = typeOf;
     gg.isArray = isArray;
     gg.isBoolean = isBoolean;
@@ -1923,7 +1924,6 @@
     gg.toUint8 = toUint8;
     gg.toBuffer = toBuffer;
     gg.toStringFromCodes = toStringFromCodes;
-    gg.arrSlice = arrSlice;
     gg.betterview = betterview;
     gg.copy = copy;
     gg.each = each;
