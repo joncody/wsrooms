@@ -160,7 +160,7 @@ func (c *Conn) Leave(name string) {
 	}
 }
 
-// Broadcasts a Message to a Room.
+// Broadcasts a Message to all members of a Room.
 func (c *Conn) Emit(data []byte, msg *Message) {
 	if room, ok := RoomManager[msg.Room]; ok {
 		room.Emit(c, data)

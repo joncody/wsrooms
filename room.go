@@ -31,7 +31,7 @@ type Room struct {
 	Send      chan *RoomMessage
 }
 
-// Stores all Room types by their name
+// Stores all Room types by their name.
 var RoomManager = make(map[string]*Room)
 
 // Starts the Room.
