@@ -18,12 +18,13 @@ package wsrooms
 
 import (
 	"github.com/chuckpreslar/emission"
-	"github.com/gorilla/websocket"
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 	"net/http"
 	"time"
 )
 
+// The Conn type represents a single client.
 type Conn struct {
 	Socket *websocket.Conn
 	Id     string
@@ -32,9 +33,9 @@ type Conn struct {
 }
 
 const (
-	writeWait = 10 * time.Second
-	pongWait = 60 * time.Second
-	pingPeriod = pongWait * 9 / 10
+	writeWait      = 10 * time.Second
+	pongWait       = 60 * time.Second
+	pingPeriod     = pongWait * 9 / 10
 	maxMessageSize = 1024 * 1024 * 1024
 )
 
@@ -45,10 +46,13 @@ var upgrader = websocket.Upgrader{
 }
 
 var (
+	// Stores all Conn types by their uuid.
 	ConnManager = make(map[string]*Conn)
-	Emitter     = emission.NewEmitter()
+	// Emits received Messages with non-reserved event names.
+	Emitter = emission.NewEmitter()
 )
 
+// Handles incoming, error free messages.
 var HandleData = func(c *Conn, data []byte, msg *Message) {
 	switch msg.Event {
 	case "join":
@@ -135,6 +139,7 @@ func (c *Conn) writePump() {
 	}
 }
 
+// Adds the Conn to a Room. If the Room does not exist, it is created.
 func (c *Conn) Join(name string) {
 	var room *Room
 
@@ -147,6 +152,7 @@ func (c *Conn) Join(name string) {
 	room.Join(c)
 }
 
+// Removes the Conn from a Room.
 func (c *Conn) Leave(name string) {
 	if room, ok := RoomManager[name]; ok {
 		delete(c.Rooms, name)
@@ -154,12 +160,14 @@ func (c *Conn) Leave(name string) {
 	}
 }
 
+// Broadcasts a Message to a Room.
 func (c *Conn) Emit(data []byte, msg *Message) {
 	if room, ok := RoomManager[msg.Room]; ok {
 		room.Emit(c, data)
 	}
 }
 
+// Upgrades an HTTP connection and creates a new Conn type.
 func NewConnection(w http.ResponseWriter, r *http.Request) *Conn {
 	socket, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -179,6 +187,7 @@ func NewConnection(w http.ResponseWriter, r *http.Request) *Conn {
 	return c
 }
 
+// Calls NewConnection, starts the returned Conn's writer, joins the root room, and finally starts the Conn's reader.
 func SocketHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		http.Error(w, "Method not allowed", 405)

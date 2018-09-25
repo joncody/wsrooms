@@ -21,6 +21,7 @@ import (
 	"log"
 )
 
+// The Room type represents a communication channel.
 type Room struct {
 	Name      string
 	Members   map[string]*Conn
@@ -30,8 +31,10 @@ type Room struct {
 	Send      chan *RoomMessage
 }
 
+// Stores all Room types by their name
 var RoomManager = make(map[string]*Room)
 
+// Starts the Room.
 func (r *Room) Start() {
 	for {
 		select {
@@ -94,22 +97,27 @@ func (r *Room) Start() {
 	}
 }
 
+// Stops the Room.
 func (r *Room) Stop() {
 	r.Stopchan <- true
 }
 
+// Adds a Conn to the Room.
 func (r *Room) Join(c *Conn) {
 	r.Joinchan <- c
 }
 
+// Removes a Conn from the Room.
 func (r *Room) Leave(c *Conn) {
 	r.Leavechan <- c
 }
 
+// Broadcasts data to all members of the Room.
 func (r *Room) Emit(c *Conn, data []byte) {
 	r.Send <- &RoomMessage{c, data}
 }
 
+// Creates a new Room type and starts it.
 func NewRoom(name string) *Room {
 	r := &Room{
 		Name:      name,
