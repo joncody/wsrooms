@@ -73,7 +73,7 @@ dst | String (optional, default: "") | The destination uuid.
 <br />
 
 ##### join(roomname) _-> {Room}_
-> Joins, and possibly creates, a Room.
+> Joins a Room. If the Room does not exist, it is created.
 ###### Parameters
 Name | Type | Description
 ---- | ---- | -----------
@@ -81,7 +81,7 @@ roomname | String | The name of the room.
 <br />
 
 ##### leave()
-> Leave the Room
+> Leave the Room.
 
 <br />
 
