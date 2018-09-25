@@ -81,7 +81,7 @@ roomname | String | The name of the room.
 <br />
 
 ##### leave()
-> Leave the Room.
+> Leaves the Room.
 
 <br />
 
