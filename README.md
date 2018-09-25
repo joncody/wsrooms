@@ -9,19 +9,18 @@ A [Gorilla WebSocket](https://github.com/gorilla/websocket) implementation with 
 `go get -u github.com/joncody/wsrooms`
 
 ## Browser API
-- [wsrooms]()
-- [Room]()
-- [Room.on]()
-- [Room.name]()
-- [Room.open]()
-- [Room.members]()
-- [Room.id]()
-- [Room.send]()
-- [Room.join]()
-- [Room.leave]()
-- [Room.parse]()
-- [Room.purge]()
-- [Room.open]()
+- [wsrooms](#wsroomsurl---room)
+- [Room](#room)
+- [Room.on](#onevent-executable)
+- [Room.name](#name---string)
+- [Room.open](#open---boolean)
+- [Room.members](#members---array)
+- [Room.id](#id---string)
+- [Room.send](#sendevent-payload-dst)
+- [Room.join](#joinroomname---room)
+- [Room.leave](#leave)
+- [Room.parse](#parsepacket)
+- [Room.purge](#purge-root-room-only)
 
 ### wsrooms(url) _-> {Room}_
 > Connects to a wsrooms WebSocket server and returns the root Room.
