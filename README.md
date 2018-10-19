@@ -32,6 +32,12 @@ url | String | The WebSocket URL to connect to.
 
 ### Room
 > A wsrooms communication channel.
+#### Properties
+##### name _-> {String}_
+> The Room name.
+
+<br />
+
 #### Methods
 ##### on(event, executable)
 > Adds an event listener to the Room.
@@ -40,11 +46,6 @@ Name | Type | Description
 ---- | ---- | -----------
 event | String | The event to listen for.
 listener | Function | The callback to run.
-<br />
-
-##### name() _-> {String}_
-> Gets the Room name.
-
 <br />
 
 ##### open() _-> {Boolean}_
