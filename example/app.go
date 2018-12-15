@@ -27,6 +27,6 @@ func main() {
 	})
 	http.HandleFunc("/", handler)
 	http.HandleFunc("/static/", staticHandler)
-	http.HandleFunc("/ws", wsrooms.SocketHandler)
+	http.HandleFunc("/ws", wsrooms.SocketHandler(nil))
 	http.ListenAndServe(":8080", nil)
 }

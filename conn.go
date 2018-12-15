@@ -1,5 +1,5 @@
 //    Title: conn.go
-//    Author: Jon Cody
+//    Author: Jonathan David Cody
 //
 //    This program is free software: you can redistribute it and/or modify
 //    it under the terms of the GNU General Public License as published by
@@ -26,11 +26,14 @@ import (
 
 // The Conn type represents a single client.
 type Conn struct {
+	Cookie map[string]string
 	Socket *websocket.Conn
 	Id     string
 	Send   chan []byte
 	Rooms  map[string]*Room
 }
+
+type CookieReader func(*http.Request) map[string]string
 
 const (
 	writeWait      = 10 * time.Second
@@ -168,7 +171,7 @@ func (c *Conn) Emit(data []byte, msg *Message) {
 }
 
 // Upgrades an HTTP connection and creates a new Conn type.
-func NewConnection(w http.ResponseWriter, r *http.Request) *Conn {
+func NewConnection(w http.ResponseWriter, r *http.Request, cr CookieReader) *Conn {
 	socket, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return nil
@@ -183,20 +186,25 @@ func NewConnection(w http.ResponseWriter, r *http.Request) *Conn {
 		Send:   make(chan []byte, 256),
 		Rooms:  make(map[string]*Room),
 	}
+	if cr != nil {
+		c.Cookie = cr(r)
+	}
 	ConnManager[c.Id] = c
 	return c
 }
 
 // Calls NewConnection, starts the returned Conn's writer, joins the root room, and finally starts the Conn's reader.
-func SocketHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.Error(w, "Method not allowed", 405)
-		return
-	}
-	c := NewConnection(w, r)
-	if c != nil {
-		go c.writePump()
-		c.Join("root")
-		c.readPump()
+func SocketHandler(cr CookieReader) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" {
+			http.Error(w, "Method not allowed", 405)
+			return
+		}
+		c := NewConnection(w, r, cr)
+		if c != nil {
+			go c.writePump()
+			c.Join("root")
+			c.readPump()
+		}
 	}
 }
