@@ -204,7 +204,7 @@ func SocketHandler(cr CookieReader) http.HandlerFunc {
 		if c != nil {
 			go c.writePump()
 			c.Join("root")
-			c.readPump()
+			go c.readPump()
 		}
 	}
 }
