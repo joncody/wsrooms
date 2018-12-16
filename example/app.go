@@ -22,7 +22,7 @@ func staticHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	wsrooms.Emitter.On("hello", func (c *wsrooms.Conn, data []byte, msg *wsrooms.Message) {
+	wsrooms.Emitter.On("hello", func (c *wsrooms.Conn, msg *wsrooms.Message) {
 		log.Println(msg)
 	})
 	http.HandleFunc("/", handler)

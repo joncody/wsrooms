@@ -113,8 +113,8 @@ func (r *Room) Leave(c *Conn) {
 }
 
 // Broadcasts data to all members of the Room.
-func (r *Room) Emit(c *Conn, data []byte) {
-	r.Send <- &RoomMessage{c, data}
+func (r *Room) Emit(c *Conn, msg *Message) {
+	r.Send <- &RoomMessage{c, MessageToBytes(msg)}
 }
 
 // Creates a new Room type and starts it.

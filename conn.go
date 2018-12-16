@@ -56,7 +56,7 @@ var (
 )
 
 // Handles incoming, error free messages.
-var HandleData = func(c *Conn, data []byte, msg *Message) {
+var HandleData = func(c *Conn, msg *Message) {
 	switch msg.Event {
 	case "join":
 		c.Join(msg.Room)
@@ -65,13 +65,13 @@ var HandleData = func(c *Conn, data []byte, msg *Message) {
 	default:
 		if msg.Dst != "" {
 			if dst, ok := c.Rooms[msg.Room].Members[msg.Dst]; ok {
-				dst.Send <- data
+				dst.Send <- MessageToBytes(msg)
 			}
 		} else {
-			c.Emit(data, msg)
+			c.Emit(msg)
 		}
 	}
-	Emitter.Emit(msg.Event, c, data, msg)
+	Emitter.Emit(msg.Event, c, msg)
 }
 
 func (c *Conn) readPump() {
@@ -104,12 +104,12 @@ func (c *Conn) readPump() {
 						PayloadLength: len([]byte(c.Id)),
 						Payload:       []byte(c.Id),
 					}
-					room.Emit(c, MessageToBytes(payload))
+					room.Emit(c, payload)
 				}
 			}
 			break
 		}
-		HandleData(c, data, BytesToMessage(data))
+		HandleData(c, BytesToMessage(data))
 	}
 }
 
@@ -164,9 +164,9 @@ func (c *Conn) Leave(name string) {
 }
 
 // Broadcasts a Message to all members of a Room.
-func (c *Conn) Emit(data []byte, msg *Message) {
+func (c *Conn) Emit(msg *Message) {
 	if room, ok := RoomManager[msg.Room]; ok {
-		room.Emit(c, data)
+		room.Emit(c, msg)
 	}
 }
 
