@@ -15,7 +15,6 @@
         console.log(gg.toStringFromCodes(msg));
     }
     socket.on("hello", hello);
-    socket.on("hello", hello);
 
     global.socket = socket;
 
