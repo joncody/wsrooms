@@ -45,7 +45,7 @@ url | String | The WebSocket URL to connect to.
 Name | Type | Description
 ---- | ---- | -----------
 event | String | The event to listen for.
-listener | Function | The callback to run.
+executable | Function | The callback to run.
 <br />
 
 ##### open() _-> {Boolean}_
@@ -107,7 +107,7 @@ packet | Object | The message adhering to the wsrooms protocol.
 
 ##### joined
 > Fired when another connection is made to the Room.
-###### Properties
+###### Parameters
 Name | Type | Description
 ---- | ---- | -----------
 id | String | The uuid of the newly connected member.
@@ -115,7 +115,7 @@ id | String | The uuid of the newly connected member.
 
 ##### left
 > Fired when another member disconnects from the Room.
-###### Properties
+###### Parameters
 Name | Type | Description
 ---- | ---- | -----------
 id | String | The uuid of the disconnected member.
