@@ -68,10 +68,9 @@ var HandleData = func(c *Conn, msg *Message) {
 				dst.Send <- MessageToBytes(msg)
 			}
 		} else {
-			c.Emit(msg)
+			Emitter.Emit(msg.Event, c, msg)
 		}
 	}
-	Emitter.Emit(msg.Event, c, msg)
 }
 
 func (c *Conn) readPump() {
