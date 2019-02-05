@@ -62,6 +62,10 @@ var HandleData = func(c *Conn, msg *Message) {
 		c.Join(msg.Room)
 	case "leave":
 		c.Leave(msg.Room)
+	case "joined":
+		c.Emit(msg)
+	case "left":
+		c.Emit(msg)
 	default:
 		if msg.Dst != "" {
 			if dst, ok := c.Rooms[msg.Room].Members[msg.Dst]; ok {
