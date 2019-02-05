@@ -4,7 +4,6 @@ import (
 	"github.com/joncody/wsrooms"
 	"net/http"
 	"html/template"
-	"log"
 )
 
 var index = template.Must(template.ParseFiles("index.html"))
