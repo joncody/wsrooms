@@ -1,5 +1,5 @@
 //    Title: gg.js
-//    Author: Jonathan David Cody
+//    Author: Jon Cody
 //
 //    This program is free software: you can redistribute it and/or modify
 //    it under the terms of the GNU General Public License as published by
@@ -1861,8 +1861,8 @@
         return Object.freeze({
             database: function () {
                 return db;
-            },
-            create: function (table, schema, options) {
+            },         
+            create: function (table, options, schema) {
                 var tableobj = db.createObjectStore(table, options);
 
                 if (!schema) {
@@ -1889,18 +1889,14 @@
         cdb.emit("delete-db", e);
     }
 
-    function dbUpgrade(e) {
-        var db = e.target.result;
+    function dbUpgrade(executable) {
+        return function (e) {
+            var db = e.target.result;
 
-        db.onerror = dbError;
-        cdb.emit("upgrade", e, cdbDatabase(db));
-    }
-
-    function dbVersionChange(e) {
-        var db = e.target.result;
-
-        db.onerror = dbError;
-        cdb.emit("versionchange", e, cdbDatabase(db));
+            db.onerror = dbError;
+            executable(e, cdbDatabase(db));
+            cdb.emit("upgrade", e, db);
+        };
     }
 
     function dbOpenSuccess(e) {
@@ -1911,12 +1907,21 @@
         cdb.emit("open", e, cdbRequest(req, db));
     }
 
-    cdb.open = function (name, version) {
-        var request = indexedDB.open(name, version);
+    cdb.open = function (name, version, executable) {
+        var request;
 
+        if (typeOf(executable) !== "function") {
+            executable = typeOf(version) === "function"
+                ? version
+                : noop;
+        }
+        if (typeOf(version) !== "number") {
+            version = 1;
+        }
+        request = indexedDB.open(name, version);
         request.onerror = dbError;
         request.onsuccess = dbOpenSuccess;
-        request.onupgradeneeded = dbUpgrade;
+        request.onupgradeneeded = dbUpgrade(executable);
     };
 
     cdb.delete = function (name) {
