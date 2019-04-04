@@ -71,8 +71,10 @@ var HandleData = func(c *Conn, msg *Message) {
 			if dst, ok := c.Rooms[msg.Room].Members[msg.Dst]; ok {
 				dst.Send <- MessageToBytes(msg)
 			}
-		} else {
+		} else if Emitter.GetListenerCount(msg.Event) > 1 {
 			Emitter.Emit(msg.Event, c, msg)
+		} else {
+			c.Emit(msg)
 		}
 	}
 }
