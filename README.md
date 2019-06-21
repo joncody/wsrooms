@@ -100,28 +100,9 @@ packet | Object | The message adhering to the wsrooms protocol.
 <br />
 
 #### Events
-##### open
-> Fired when the Room has been successfully joined.
-
-<br />
-
-##### joined
-> Fired when another connection is made to the Room.
-###### Parameters
-Name | Type | Description
----- | ---- | -----------
-id | String | The uuid of the newly connected member.
-<br />
-
-##### left
-> Fired when another member disconnects from the Room.
-###### Parameters
-Name | Type | Description
----- | ---- | -----------
-id | String | The uuid of the disconnected member.
-<br />
-
-##### close
-> Fired when the Room has been successfully left.
-
-<br />
+Name | Parameters | Description
+---- | ---------- | -----------
+open | | Fired when the Room has been successfully joined.
+joined | id (String) | Fired when another connection is made to the Room.
+left | id (String) | Fired when another member disconnects from the Room.
+close | | Fired when the Room has been successfully left.
