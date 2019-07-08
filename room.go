@@ -48,34 +48,12 @@ func (r *Room) Start() {
 				log.Println(err)
 				break
 			}
-			msg := &Message{
-				RoomLength:    len(r.Name),
-				Room:          r.Name,
-				EventLength:   len("join"),
-				Event:         "join",
-				DstLength:     0,
-				Dst:           "",
-				SrcLength:     len(c.Id),
-				Src:           c.Id,
-				PayloadLength: len(payload),
-				Payload:       payload,
-			}
+			msg := ConstructMessage(r.Name, "join", "", c.Id, payload)
 			r.Members[c.Id] = c
 			c.Send <- MessageToBytes(msg)
 		case c := <-r.Leavechan:
 			if _, ok := r.Members[c.Id]; ok {
-				msg := &Message{
-					RoomLength:    len(r.Name),
-					Room:          r.Name,
-					EventLength:   len("leave"),
-					Event:         "leave",
-					DstLength:     0,
-					Dst:           "",
-					SrcLength:     len(c.Id),
-					Src:           c.Id,
-					PayloadLength: len(c.Id),
-					Payload:       []byte(c.Id),
-				}
+				msg := ConstructMessage(r.Name, "leave", "", c.Id, []byte(c.Id))
 				delete(r.Members, c.Id)
 				c.Send <- MessageToBytes(msg)
 			}

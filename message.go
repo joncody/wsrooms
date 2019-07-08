@@ -73,3 +73,19 @@ func MessageToBytes(msg *Message) []byte {
 	buf.Write(msg.Payload)
 	return buf.Bytes()
 }
+
+// Constructs and returns a new Message type.
+func ConstructMessage(room, event, dst, src string, payload []byte) *Message {
+	return &Message{
+		RoomLength:    len(room),
+		Room:          room,
+		EventLength:   len(event),
+		Event:         event,
+		DstLength:     len(dst),
+		Dst:           dst,
+		SrcLength:     len(src),
+		Src:           src,
+		PayloadLength: len(payload),
+		Payload:       payload,
+	}
+}

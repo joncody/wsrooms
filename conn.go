@@ -97,18 +97,7 @@ func (c *Conn) readPump() {
 		if err != nil {
 			if _, ok := err.(*websocket.CloseError); ok {
 				for name, room := range c.Rooms {
-					payload := &Message{
-						RoomLength:    len(name),
-						Room:          name,
-						EventLength:   len("left"),
-						Event:         "left",
-						DstLength:     0,
-						Dst:           "",
-						SrcLength:     len(c.Id),
-						Src:           c.Id,
-						PayloadLength: len([]byte(c.Id)),
-						Payload:       []byte(c.Id),
-					}
+					payload := ConstructMessage(name, "left", "", c.Id, []byte(c.Id))
 					room.Emit(c, payload)
 				}
 			}
