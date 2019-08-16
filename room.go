@@ -70,6 +70,7 @@ func (r *Room) Start() {
 				}
 			}
 		case <-r.Stopchan:
+			delete(RoomManager, r.Name)
 			return
 		}
 	}

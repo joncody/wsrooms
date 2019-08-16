@@ -17,11 +17,12 @@
 package wsrooms
 
 import (
+	"net/http"
+	"time"
+
 	"github.com/chuckpreslar/emission"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"net/http"
-	"time"
 )
 
 // The Conn type represents a single client.
@@ -66,6 +67,11 @@ var HandleData = func(c *Conn, msg *Message) {
 		c.Emit(msg)
 	case "left":
 		c.Emit(msg)
+		room := RoomManager[msg.Room]
+		delete(room.Members, c.Id)
+		if len(room.Members) == 0 {
+			room.Stop()
+		}
 	default:
 		if msg.Dst != "" {
 			if dst, ok := c.Rooms[msg.Room].Members[msg.Dst]; ok {
@@ -99,6 +105,10 @@ func (c *Conn) readPump() {
 				for name, room := range c.Rooms {
 					payload := ConstructMessage(name, "left", "", c.Id, []byte(c.Id))
 					room.Emit(c, payload)
+					delete(room.Members, c.Id)
+					if len(room.Members) == 0 {
+						room.Stop()
+					}
 				}
 			}
 			break
