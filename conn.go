@@ -29,7 +29,7 @@ import (
 type Conn struct {
 	Cookie map[string]string
 	Socket *websocket.Conn
-	Id     string
+	ID     string
 	Send   chan []byte
 	Rooms  map[string]*Room
 }
@@ -68,8 +68,8 @@ var HandleData = func(c *Conn, msg *Message) {
 	case "left":
 		c.Emit(msg)
 		room := RoomManager[msg.Room]
-		delete(room.Members, c.Id)
-		if len(room.Members) == 0 {
+		delete(room.Members, c.ID)
+		if room.Name != "root" && len(room.Members) == 0 {
 			room.Stop()
 		}
 	default:
@@ -103,10 +103,10 @@ func (c *Conn) readPump() {
 		if err != nil {
 			if _, ok := err.(*websocket.CloseError); ok {
 				for name, room := range c.Rooms {
-					payload := ConstructMessage(name, "left", "", c.Id, []byte(c.Id))
+					payload := ConstructMessage(name, "left", "", c.ID, []byte(c.ID))
 					room.Emit(c, payload)
-					delete(room.Members, c.Id)
-					if len(room.Members) == 0 {
+					delete(room.Members, c.ID)
+					if room.Name != "root" && len(room.Members) == 0 {
 						room.Stop()
 					}
 				}
@@ -186,14 +186,14 @@ func NewConnection(w http.ResponseWriter, r *http.Request, cr CookieReader) *Con
 	}
 	c := &Conn{
 		Socket: socket,
-		Id:     id.String(),
+		ID:     id.String(),
 		Send:   make(chan []byte, 256),
 		Rooms:  make(map[string]*Room),
 	}
 	if cr != nil {
 		c.Cookie = cr(r)
 	}
-	ConnManager[c.Id] = c
+	ConnManager[c.ID] = c
 	return c
 }
 

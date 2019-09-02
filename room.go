@@ -40,7 +40,7 @@ func (r *Room) Start() {
 		select {
 		case c := <-r.Joinchan:
 			members := make([]string, 0)
-			for id, _ := range r.Members {
+			for id := range r.Members {
 				members = append(members, id)
 			}
 			payload, err := json.Marshal(members)
@@ -48,28 +48,29 @@ func (r *Room) Start() {
 				log.Println(err)
 				break
 			}
-			msg := ConstructMessage(r.Name, "join", "", c.Id, payload)
-			r.Members[c.Id] = c
+			msg := ConstructMessage(r.Name, "join", "", c.ID, payload)
+			r.Members[c.ID] = c
 			c.Send <- MessageToBytes(msg)
 		case c := <-r.Leavechan:
-			if _, ok := r.Members[c.Id]; ok {
-				msg := ConstructMessage(r.Name, "leave", "", c.Id, []byte(c.Id))
-				delete(r.Members, c.Id)
+			if _, ok := r.Members[c.ID]; ok {
+				msg := ConstructMessage(r.Name, "leave", "", c.ID, []byte(c.ID))
+				delete(r.Members, c.ID)
 				c.Send <- MessageToBytes(msg)
 			}
-		case msg := <-r.Send:
+		case rmsg := <-r.Send:
 			for id, c := range r.Members {
-				if c == msg.Sender {
+				if c == rmsg.Sender {
 					continue
 				}
 				select {
-				case c.Send <- msg.Data:
+				case c.Send <- rmsg.Data:
 				default:
 					delete(r.Members, id)
 					close(c.Send)
 				}
 			}
 		case <-r.Stopchan:
+			RoomManager["root"].Emit(nil, ConstructMessage("root", "destroyed", "", "", []byte(r.Name)))
 			delete(RoomManager, r.Name)
 			return
 		}
@@ -108,5 +109,6 @@ func NewRoom(name string) *Room {
 	}
 	RoomManager[name] = r
 	go r.Start()
+	RoomManager["root"].Emit(nil, ConstructMessage("root", "created", "", "", []byte(name)))
 	return r
 }
