@@ -21,6 +21,7 @@ A [Gorilla WebSocket](https://github.com/gorilla/websocket) implementation with 
   - [leave](#leave)
   - [parse](#parsepacket)
   - [purge](#purge-root-room-only)
+  - [rooms](#rooms-root-room-only)
 
 ### wsrooms(url) _-> {Room}_
 > Connects to a wsrooms WebSocket server and returns the root Room.
@@ -96,6 +97,11 @@ packet | Object | The message adhering to the wsrooms protocol.
 
 ##### purge() *_root room only_
 > Leaves all Rooms other than the root Room.
+
+<br />
+
+##### rooms() *_root room only_
+> Returns all currently joined rooms.
 
 <br />
 

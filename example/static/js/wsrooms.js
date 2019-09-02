@@ -2052,7 +2052,7 @@
         };
 
         room.members = function () {
-            return store.members;
+            return gg.copy(store.members);
         };
 
         room.id = function () {
@@ -2188,6 +2188,9 @@
                         rooms[name].leave();
                     }
                 });
+            };
+            room.rooms = function () {
+                return gg.copy(rooms);
             };
         }
 
