@@ -1,9 +1,10 @@
 package main
 
 import (
-	"github.com/joncody/wsrooms"
-	"net/http"
 	"html/template"
+	"net/http"
+
+	"github.com/joncody/wsrooms"
 )
 
 var index = template.Must(template.ParseFiles("index.html"))
@@ -21,7 +22,7 @@ func staticHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	wsrooms.Emitter.On("hello", func (c *wsrooms.Conn, msg *wsrooms.Message) {
+	wsrooms.Emitter.On("hello", func(c *wsrooms.Conn, msg *wsrooms.Message) {
 		c.Emit(msg)
 		// c.Send <- MessageToBytes(msg)
 	})
