@@ -17,6 +17,8 @@
 package wsrooms
 
 import (
+	"encoding/json"
+	"log"
 	"net/http"
 	"time"
 
@@ -57,19 +59,31 @@ var (
 )
 
 // Handles incoming, error free messages.
-var HandleData = func(c *Conn, msg *Message) {
+func HandleData(c *Conn, msg *Message) {
 	switch msg.Event {
 	case "join":
 		c.Join(msg.Room)
 	case "leave":
 		c.Leave(msg.Room)
 	case "joined":
+		payload, err := json.Marshal(&BroadcastMessage{c.ID, msg.Room})
+		if err != nil {
+			log.Println(err)
+			break
+		}
+		RoomManager["root"].Emit(nil, ConstructMessage("root", "room-joined", "", "", payload))
 		c.Emit(msg)
 	case "left":
+		payload, err := json.Marshal(&BroadcastMessage{c.ID, msg.Room})
+		if err != nil {
+			log.Println(err)
+			break
+		}
+		RoomManager["root"].Emit(nil, ConstructMessage("root", "room-left", "", "", payload))
 		c.Emit(msg)
 		room := RoomManager[msg.Room]
 		delete(room.Members, c.ID)
-		if room.Name != "root" && len(room.Members) == 0 {
+		if len(room.Members) == 0 {
 			room.Stop()
 		}
 	default:
@@ -103,10 +117,15 @@ func (c *Conn) readPump() {
 		if err != nil {
 			if _, ok := err.(*websocket.CloseError); ok {
 				for name, room := range c.Rooms {
-					payload := ConstructMessage(name, "left", "", c.ID, []byte(c.ID))
-					room.Emit(c, payload)
+					payload, err := json.Marshal(&BroadcastMessage{c.ID, name})
+					if err != nil {
+						log.Println(err)
+						break
+					}
+					RoomManager["root"].Emit(nil, ConstructMessage("root", "room-left", "", "", payload))
+					room.Emit(c, ConstructMessage(name, "left", "", c.ID, []byte(c.ID)))
 					delete(room.Members, c.ID)
-					if room.Name != "root" && len(room.Members) == 0 {
+					if len(room.Members) == 0 {
 						room.Stop()
 					}
 				}

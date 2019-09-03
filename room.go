@@ -48,14 +48,12 @@ func (r *Room) Start() {
 				log.Println(err)
 				break
 			}
-			msg := ConstructMessage(r.Name, "join", "", c.ID, payload)
 			r.Members[c.ID] = c
-			c.Send <- MessageToBytes(msg)
+			c.Send <- MessageToBytes(ConstructMessage(r.Name, "join", "", c.ID, payload))
 		case c := <-r.Leavechan:
 			if _, ok := r.Members[c.ID]; ok {
-				msg := ConstructMessage(r.Name, "leave", "", c.ID, []byte(c.ID))
 				delete(r.Members, c.ID)
-				c.Send <- MessageToBytes(msg)
+				c.Send <- MessageToBytes(ConstructMessage(r.Name, "leave", "", c.ID, []byte(c.ID)))
 			}
 		case rmsg := <-r.Send:
 			for id, c := range r.Members {
@@ -70,6 +68,7 @@ func (r *Room) Start() {
 				}
 			}
 		case <-r.Stopchan:
+			RoomManager["root"].Emit(nil, ConstructMessage("root", "room-destroyed", "", "", []byte(r.Name)))
 			delete(RoomManager, r.Name)
 			return
 		}
@@ -108,5 +107,6 @@ func NewRoom(name string) *Room {
 	}
 	RoomManager[name] = r
 	go r.Start()
+	RoomManager["root"].Emit(nil, ConstructMessage("root", "room-created", "", "", []byte(name)))
 	return r
 }

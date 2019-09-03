@@ -41,6 +41,11 @@ type RoomMessage struct {
 	Data   []byte
 }
 
+type BroadcastMessage struct {
+	ID   string `json:"id"`
+	Room string `json:"room"`
+}
+
 // Returns a Message type from bytes.
 func BytesToMessage(data []byte) *Message {
 	buf := bytes.NewBuffer(data)
