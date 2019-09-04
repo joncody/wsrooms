@@ -66,20 +66,8 @@ func HandleData(c *Conn, msg *Message) {
 	case "leave":
 		c.Leave(msg.Room)
 	case "joined":
-		payload, err := json.Marshal(&BroadcastMessage{c.ID, msg.Room})
-		if err != nil {
-			log.Println(err)
-			break
-		}
-		RoomManager["root"].Emit(nil, ConstructMessage("root", "room-joined", "", "", payload))
 		c.Emit(msg)
 	case "left":
-		payload, err := json.Marshal(&BroadcastMessage{c.ID, msg.Room})
-		if err != nil {
-			log.Println(err)
-			break
-		}
-		RoomManager["root"].Emit(nil, ConstructMessage("root", "room-left", "", "", payload))
 		c.Emit(msg)
 		room := RoomManager[msg.Room]
 		delete(room.Members, c.ID)
@@ -122,7 +110,6 @@ func (c *Conn) readPump() {
 						log.Println(err)
 						break
 					}
-					RoomManager["root"].Emit(nil, ConstructMessage("root", "room-left", "", "", payload))
 					room.Emit(c, ConstructMessage(name, "left", "", c.ID, []byte(c.ID)))
 					delete(room.Members, c.ID)
 					if len(room.Members) == 0 {
