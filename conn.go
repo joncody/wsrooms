@@ -17,8 +17,6 @@
 package wsrooms
 
 import (
-	"encoding/json"
-	"log"
 	"net/http"
 	"time"
 
@@ -105,11 +103,6 @@ func (c *Conn) readPump() {
 		if err != nil {
 			if _, ok := err.(*websocket.CloseError); ok {
 				for name, room := range c.Rooms {
-					payload, err := json.Marshal(&BroadcastMessage{c.ID, name})
-					if err != nil {
-						log.Println(err)
-						break
-					}
 					room.Emit(c, ConstructMessage(name, "left", "", c.ID, []byte(c.ID)))
 					delete(room.Members, c.ID)
 					if len(room.Members) == 0 {
