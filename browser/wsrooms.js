@@ -740,7 +740,9 @@
 
             if (!em.events.removeListener) {
                 if (!type) {
-                    em.events = {};
+                    Object.keys(em.events).forEach(function (key) {
+                        delete em.events[key];
+                    });
                 } else {
                     delete em.events[type];
                 }
@@ -751,7 +753,6 @@
                     }
                 });
                 em.removeAllListeners("removeListener");
-                em.events = {};
             } else {
                 list = em.events[type];
                 list.forEach(function (item) {
@@ -1059,6 +1060,9 @@
         });
 
         gobject.add = function (nodes) {
+            if (isString(nodes)) {
+                nodes = gg(nodes);
+            }
             each(nodes, function (node) {
                 if (isNode(node) && node.nodeType < 9) {
                     store.push(node);
@@ -1092,6 +1096,9 @@
         gobject.after = function (value) {
             var willcopy = store.length > 1;
 
+            if (isString(value)) {
+                value = gg(value);
+            }
             each(store, function (node) {
                 each(value, function (sibling) {
                     if (!isNode(sibling)) {
@@ -1108,6 +1115,9 @@
         gobject.append = function (value) {
             var willcopy = store.length > 1;
 
+            if (isString(value)) {
+                value = gg(value);
+            }
             each(store, function (node) {
                 each(value, function (child) {
                     if (!isNode(child)) {
@@ -1124,6 +1134,9 @@
         gobject.appendTo = function (value) {
             var willcopy = toArray(value).length > 1;
 
+            if (isString(value)) {
+                value = gg(value);
+            }
             each(store, function (node) {
                 each(value, function (parent) {
                     if (!isNode(parent)) {
@@ -1173,6 +1186,9 @@
         gobject.before = function (value) {
             var willcopy = store.length > 1;
 
+            if (isString(value)) {
+                value = gg(value);
+            }
             each(store, function (node) {
                 each(value, function (sibling) {
                     if (!isNode(sibling)) {
@@ -1455,6 +1471,9 @@
         gobject.prepend = function (value) {
             var willcopy = store.length > 1;
 
+            if (isString(value)) {
+                value = gg(value);
+            }
             each(store, function (node) {
                 each(value, function (child) {
                     if (!isNode(child)) {
@@ -1471,6 +1490,9 @@
         gobject.prependTo = function (value) {
             var willcopy = toArray(value).length > 1;
 
+            if (isString(value)) {
+                value = gg(value);
+            }
             each(store, function (node) {
                 each(value, function (parent) {
                     if (!isNode(parent)) {
