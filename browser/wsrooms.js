@@ -794,27 +794,6 @@
         return em;
     }
 
-    function equal(one, two) {
-        var result = true;
-
-        if (typeOf(one) !== typeOf(two) || (typeOf(one) !== "array" && typeOf(one) !== "object" && one !== two)) {
-            result = false;
-        } else if (typeOf(one) === "array") {
-            one.forEach(function (val) {
-                if (two.indexOf(val) === -1) {
-                    result = false;
-                }
-            });
-        } else if (typeOf(one) === "object") {
-            Object.keys(one).forEach(function (key) {
-                if (one[key] !== two[key]) {
-                    result = false;
-                }
-            });
-        }
-        return result;
-    }
-
     function extend(value, add, overwrite) {
         if (!isObject(value) || !isObject(add)) {
             return value;
@@ -1022,7 +1001,11 @@
             }
             if (isNode(node)) {
                 nodeid = global.parseInt(node.getAttribute("data-gg-id"), 10);
-                clone = node.cloneNode(true);
+                clone = node.cloneNode();
+                clone.textContent = node.textContent;
+                each(node.children, function (child) {
+                    clone.appendChild(cloneNodeDeeper(child));
+                });
             }
             if (!isNumber(nodeid) || !listeners.hasOwnProperty(nodeid)) {
                 return clone;
@@ -1990,7 +1973,6 @@
     gg.copy = copy;
     gg.each = each;
     gg.emitter = emitter;
-    gg.equal = equal;
     gg.extend = extend;
     gg.inherits = inherits;
     gg.inArray = inArray;

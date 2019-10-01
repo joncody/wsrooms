@@ -740,7 +740,9 @@
 
             if (!em.events.removeListener) {
                 if (!type) {
-                    em.events = {};
+                    Object.keys(em.events).forEach(function (key) {
+                        delete em.events[key];
+                    });
                 } else {
                     delete em.events[type];
                 }
@@ -751,7 +753,6 @@
                     }
                 });
                 em.removeAllListeners("removeListener");
-                em.events = {};
             } else {
                 list = em.events[type];
                 list.forEach(function (item) {
@@ -791,27 +792,6 @@
         };
 
         return em;
-    }
-
-    function equal(one, two) {
-        var result = true;
-
-        if (typeOf(one) !== typeOf(two) || (typeOf(one) !== "array" && typeOf(one) !== "object" && one !== two)) {
-            result = false;
-        } else if (typeOf(one) === "array") {
-            one.forEach(function (val) {
-                if (two.indexOf(val) === -1) {
-                    result = false;
-                }
-            });
-        } else if (typeOf(one) === "object") {
-            Object.keys(one).forEach(function (key) {
-                if (one[key] !== two[key]) {
-                    result = false;
-                }
-            });
-        }
-        return result;
     }
 
     function extend(value, add, overwrite) {
@@ -1021,7 +1001,11 @@
             }
             if (isNode(node)) {
                 nodeid = global.parseInt(node.getAttribute("data-gg-id"), 10);
-                clone = node.cloneNode(true);
+                clone = node.cloneNode();
+                clone.textContent = node.textContent;
+                each(node.children, function (child) {
+                    clone.appendChild(cloneNodeDeeper(child));
+                });
             }
             if (!isNumber(nodeid) || !listeners.hasOwnProperty(nodeid)) {
                 return clone;
@@ -1059,6 +1043,9 @@
         });
 
         gobject.add = function (nodes) {
+            if (isString(nodes)) {
+                nodes = gg(nodes);
+            }
             each(nodes, function (node) {
                 if (isNode(node) && node.nodeType < 9) {
                     store.push(node);
@@ -1092,6 +1079,9 @@
         gobject.after = function (value) {
             var willcopy = store.length > 1;
 
+            if (isString(value)) {
+                value = gg(value);
+            }
             each(store, function (node) {
                 each(value, function (sibling) {
                     if (!isNode(sibling)) {
@@ -1108,6 +1098,9 @@
         gobject.append = function (value) {
             var willcopy = store.length > 1;
 
+            if (isString(value)) {
+                value = gg(value);
+            }
             each(store, function (node) {
                 each(value, function (child) {
                     if (!isNode(child)) {
@@ -1124,6 +1117,9 @@
         gobject.appendTo = function (value) {
             var willcopy = toArray(value).length > 1;
 
+            if (isString(value)) {
+                value = gg(value);
+            }
             each(store, function (node) {
                 each(value, function (parent) {
                     if (!isNode(parent)) {
@@ -1173,6 +1169,9 @@
         gobject.before = function (value) {
             var willcopy = store.length > 1;
 
+            if (isString(value)) {
+                value = gg(value);
+            }
             each(store, function (node) {
                 each(value, function (sibling) {
                     if (!isNode(sibling)) {
@@ -1455,6 +1454,9 @@
         gobject.prepend = function (value) {
             var willcopy = store.length > 1;
 
+            if (isString(value)) {
+                value = gg(value);
+            }
             each(store, function (node) {
                 each(value, function (child) {
                     if (!isNode(child)) {
@@ -1471,6 +1473,9 @@
         gobject.prependTo = function (value) {
             var willcopy = toArray(value).length > 1;
 
+            if (isString(value)) {
+                value = gg(value);
+            }
             each(store, function (node) {
                 each(value, function (parent) {
                     if (!isNode(parent)) {
@@ -1968,7 +1973,6 @@
     gg.copy = copy;
     gg.each = each;
     gg.emitter = emitter;
-    gg.equal = equal;
     gg.extend = extend;
     gg.inherits = inherits;
     gg.inArray = inArray;
