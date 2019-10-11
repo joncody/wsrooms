@@ -24,7 +24,7 @@ func staticHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	wsrooms.Emitter.On("hello", func(c *wsrooms.Conn, msg *wsrooms.Message) {
 		c.Emit(msg)
-		// c.Send <- MessageToBytes(msg)
+		// c.Send <- msg.Bytes()
 	})
 	http.HandleFunc("/", handler)
 	http.HandleFunc("/static/", staticHandler)
