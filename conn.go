@@ -18,6 +18,7 @@ package wsrooms
 
 import (
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/chuckpreslar/emission"
@@ -27,6 +28,7 @@ import (
 
 // The Conn type represents a single client.
 type Conn struct {
+	sync.Mutex
 	Cookie map[string]string
 	Socket *websocket.Conn
 	ID     string
@@ -51,7 +53,12 @@ var upgrader = websocket.Upgrader{
 
 var (
 	// Stores all Conn types by their uuid.
-	ConnManager = make(map[string]*Conn)
+	ConnManager = struct {
+		sync.Mutex
+		Conns map[string]*Conn
+	}{
+		Conns: make(map[string]*Conn),
+	}
 	// Emits received Messages with non-reserved event names.
 	Emitter = emission.NewEmitter()
 )
@@ -67,15 +74,29 @@ func HandleData(c *Conn, msg *Message) {
 		c.Emit(msg)
 	case "left":
 		c.Emit(msg)
-		room := RoomManager[msg.Room]
+		RoomManager.Lock()
+		room := RoomManager.Rooms[msg.Room]
+		RoomManager.Unlock()
+		room.Lock()
 		delete(room.Members, c.ID)
 		if len(room.Members) == 0 {
+			room.Unlock()
 			room.Stop()
+		} else {
+			room.Unlock()
 		}
 	default:
 		if msg.Dst != "" {
-			if dst, ok := c.Rooms[msg.Room].Members[msg.Dst]; ok {
-				dst.Send <- MessageToBytes(msg)
+			c.Lock()
+			room, ok := c.Rooms[msg.Room]
+			c.Unlock()
+			if ok {
+				room.Lock()
+				dst, ok := room.Members[msg.Dst]
+				room.Unlock()
+				if ok {
+					dst.Send <- msg.Bytes()
+				}
 			}
 		} else if Emitter.GetListenerCount(msg.Event) > 0 {
 			Emitter.Emit(msg.Event, c, msg)
@@ -87,9 +108,11 @@ func HandleData(c *Conn, msg *Message) {
 
 func (c *Conn) readPump() {
 	defer func() {
+		c.Lock()
 		for _, room := range c.Rooms {
 			room.Leave(c)
 		}
+		c.Unlock()
 		c.Socket.Close()
 	}()
 	c.Socket.SetReadLimit(maxMessageSize)
@@ -102,13 +125,19 @@ func (c *Conn) readPump() {
 		_, data, err := c.Socket.ReadMessage()
 		if err != nil {
 			if _, ok := err.(*websocket.CloseError); ok {
+				c.Lock()
 				for name, room := range c.Rooms {
 					room.Emit(c, ConstructMessage(name, "left", "", c.ID, []byte(c.ID)))
+					room.Lock()
 					delete(room.Members, c.ID)
 					if len(room.Members) == 0 {
+						room.Unlock()
 						room.Stop()
+					} else {
+						room.Unlock()
 					}
 				}
+				c.Unlock()
 			}
 			break
 		}
@@ -147,28 +176,37 @@ func (c *Conn) writePump() {
 
 // Adds the Conn to a Room. If the Room does not exist, it is created.
 func (c *Conn) Join(name string) {
-	var room *Room
-
-	if _, ok := RoomManager[name]; ok {
-		room = RoomManager[name]
-	} else {
+	RoomManager.Lock()
+	room, ok := RoomManager.Rooms[name]
+	RoomManager.Unlock()
+	if !ok {
 		room = NewRoom(name)
 	}
+	c.Lock()
 	c.Rooms[name] = room
+	c.Unlock()
 	room.Join(c)
 }
 
 // Removes the Conn from a Room.
 func (c *Conn) Leave(name string) {
-	if room, ok := RoomManager[name]; ok {
+	RoomManager.Lock()
+	room, ok := RoomManager.Rooms[name]
+	RoomManager.Unlock()
+	if ok {
+		c.Lock()
 		delete(c.Rooms, name)
+		c.Unlock()
 		room.Leave(c)
 	}
 }
 
 // Broadcasts a Message to all members of a Room.
 func (c *Conn) Emit(msg *Message) {
-	if room, ok := RoomManager[msg.Room]; ok {
+	RoomManager.Lock()
+	room, ok := RoomManager.Rooms[msg.Room]
+	RoomManager.Unlock()
+	if ok {
 		room.Emit(c, msg)
 	}
 }
@@ -192,7 +230,9 @@ func NewConnection(w http.ResponseWriter, r *http.Request, cr CookieReader) *Con
 	if cr != nil {
 		c.Cookie = cr(r)
 	}
-	ConnManager[c.ID] = c
+	ConnManager.Lock()
+	ConnManager.Conns[c.ID] = c
+	ConnManager.Unlock()
 	return c
 }
 

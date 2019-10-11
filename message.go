@@ -59,7 +59,7 @@ func BytesToMessage(data []byte) *Message {
 }
 
 // Returns bytes from a Message type.
-func MessageToBytes(msg *Message) []byte {
+func (msg *Message) Bytes() []byte {
 	buf := bytes.NewBuffer([]byte{})
 	binary.Write(buf, binary.BigEndian, uint32(msg.RoomLength))
 	buf.Write([]byte(msg.Room))

@@ -19,10 +19,12 @@ package wsrooms
 import (
 	"encoding/json"
 	"log"
+	"sync"
 )
 
 // The Room type represents a communication channel.
 type Room struct {
+	sync.Mutex
 	Name      string
 	Members   map[string]*Conn
 	Stopchan  chan bool
@@ -32,7 +34,12 @@ type Room struct {
 }
 
 // Stores all Room types by their name.
-var RoomManager = make(map[string]*Room)
+var RoomManager = struct {
+	sync.Mutex
+	Rooms map[string]*Room
+}{
+	Rooms: make(map[string]*Room, 0),
+}
 
 // Starts the Room.
 func (r *Room) Start() {
@@ -40,22 +47,30 @@ func (r *Room) Start() {
 		select {
 		case c := <-r.Joinchan:
 			members := make([]string, 0)
+			r.Lock()
 			for id := range r.Members {
 				members = append(members, id)
 			}
+			r.Members[c.ID] = c
+			r.Unlock()
 			payload, err := json.Marshal(members)
 			if err != nil {
 				log.Println(err)
 				break
 			}
-			r.Members[c.ID] = c
-			c.Send <- MessageToBytes(ConstructMessage(r.Name, "join", "", c.ID, payload))
+			c.Send <- ConstructMessage(r.Name, "join", "", c.ID, payload).Bytes()
 		case c := <-r.Leavechan:
-			if _, ok := r.Members[c.ID]; ok {
+			r.Lock()
+			_, ok := r.Members[c.ID]
+			r.Unlock()
+			if ok {
+				r.Lock()
 				delete(r.Members, c.ID)
-				c.Send <- MessageToBytes(ConstructMessage(r.Name, "leave", "", c.ID, []byte(c.ID)))
+				r.Unlock()
+				c.Send <- ConstructMessage(r.Name, "leave", "", c.ID, []byte(c.ID)).Bytes()
 			}
 		case rmsg := <-r.Send:
+			r.Lock()
 			for id, c := range r.Members {
 				if c == rmsg.Sender {
 					continue
@@ -67,8 +82,11 @@ func (r *Room) Start() {
 					close(c.Send)
 				}
 			}
+			r.Unlock()
 		case <-r.Stopchan:
-			delete(RoomManager, r.Name)
+			RoomManager.Lock()
+			delete(RoomManager.Rooms, r.Name)
+			RoomManager.Unlock()
 			return
 		}
 	}
@@ -91,7 +109,7 @@ func (r *Room) Leave(c *Conn) {
 
 // Broadcasts data to all members of the Room.
 func (r *Room) Emit(c *Conn, msg *Message) {
-	r.Send <- &RoomMessage{c, MessageToBytes(msg)}
+	r.Send <- &RoomMessage{c, msg.Bytes()}
 }
 
 // Creates a new Room type and starts it.
@@ -104,7 +122,9 @@ func NewRoom(name string) *Room {
 		Leavechan: make(chan *Conn),
 		Send:      make(chan *RoomMessage),
 	}
-	RoomManager[name] = r
+	RoomManager.Lock()
+	RoomManager.Rooms[name] = r
+	RoomManager.Unlock()
 	go r.Start()
 	return r
 }
