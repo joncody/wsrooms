@@ -41,13 +41,6 @@
             return rooms[name];
         }
 
-        room.on("close", function () {
-            store.open = false;
-            store.members = [];
-            store.id = "";
-            delete rooms[name];
-        });
-
         room.name = name;
 
         room.open = function () {
@@ -160,6 +153,10 @@
                     .writeUint32(store.id.length).writeString(store.id);
                 socket.send(data.seek(0).getBytes());
                 room.emit("close");
+                store.open = false;
+                store.members = [];
+                store.id = "";
+                delete rooms[name];
                 break;
             case "left":
                 packet.payload = gg.toStringFromCodes(packet.payload);
@@ -172,6 +169,17 @@
             default:
                 room.emit(packet.event, packet.payload, packet.src);
             }
+        };
+
+        room.clearListeners = function (exceptions) {
+            if (!gg.isArray(exceptions)) {
+                exceptions = [];
+            }
+            Object.keys(room.events).forEach(function (event) {
+                if (exceptions.indexOf(event) === -1) {
+                    room.removeAllListeners(event);
+                }
+            });
         };
 
         rooms[name] = room;
