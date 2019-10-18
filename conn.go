@@ -79,31 +79,31 @@ func HandleData(c *Conn, msg *Message) {
 		RoomManager.Unlock()
 		if ok == true {
 			room.Lock()
-            delete(room.Members, c.ID)
-            members := len(room.Members)
-            room.Unlock()
+			delete(room.Members, c.ID)
+			members := len(room.Members)
+			room.Unlock()
 			if members == 0 {
 				room.Stop()
 			}
-        }
+		}
 	default:
 		if msg.Dst != "" {
 			RoomManager.Lock()
 			room, rok := RoomManager.Rooms[msg.Room]
 			RoomManager.Unlock()
-            if rok == true {
-                room.Lock()
-                id, mok := room.Members[msg.Dst]
-                room.Unlock()
-			    if mok == true {
-				    ConnManager.Lock()
-			    	dst, cok := ConnManager.Conns[id]
-				    ConnManager.Unlock()
-				    if cok == true {
-				    	dst.Send <- msg.Bytes()
-				    }
-			    }
-            }
+			if rok == true {
+				room.Lock()
+				id, mok := room.Members[msg.Dst]
+				room.Unlock()
+				if mok == true {
+					ConnManager.Lock()
+					dst, cok := ConnManager.Conns[id]
+					ConnManager.Unlock()
+					if cok == true {
+						dst.Send <- msg.Bytes()
+					}
+				}
+			}
 		} else if Emitter.GetListenerCount(msg.Event) > 0 {
 			Emitter.Emit(msg.Event, c, msg)
 		} else {
@@ -116,14 +116,14 @@ func (c *Conn) readPump() {
 	defer func() {
 		c.Lock()
 		for name := range c.Rooms {
-            c.Unlock()
-            RoomManager.Lock()
-            room, ok := RoomManager.Rooms[name]
-            RoomManager.Unlock()
-            if ok == true {
-                room.Leave(c)
-            }
-            c.Lock()
+			c.Unlock()
+			RoomManager.Lock()
+			room, ok := RoomManager.Rooms[name]
+			RoomManager.Unlock()
+			if ok == true {
+				room.Leave(c)
+			}
+			c.Lock()
 		}
 		c.Unlock()
 		c.Socket.Close()
@@ -140,21 +140,21 @@ func (c *Conn) readPump() {
 			if _, wok := err.(*websocket.CloseError); wok == true {
 				c.Lock()
 				for name := range c.Rooms {
-                    c.Unlock()
-                    RoomManager.Lock()
-                    room, rok := RoomManager.Rooms[name]
-                    RoomManager.Unlock()
-                    if rok == true {
-					    room.Emit(c, ConstructMessage(name, "left", "", c.ID, []byte(c.ID)))
-					    room.Lock()
-					    delete(room.Members, c.ID)
-                        members := len(room.Members)
+					c.Unlock()
+					RoomManager.Lock()
+					room, rok := RoomManager.Rooms[name]
+					RoomManager.Unlock()
+					if rok == true {
+						room.Emit(c, ConstructMessage(name, "left", "", c.ID, []byte(c.ID)))
+						room.Lock()
+						delete(room.Members, c.ID)
+						members := len(room.Members)
 						room.Unlock()
-					    if members == 0 {
-						    room.Stop()
-					    }
-                    }
-                    c.Lock()
+						if members == 0 {
+							room.Stop()
+						}
+					}
+					c.Lock()
 				}
 				c.Unlock()
 			}
@@ -214,14 +214,14 @@ func (c *Conn) Leave(name string) {
 	RoomManager.Unlock()
 	if rok == true {
 		c.Lock()
-        _, cok := c.Rooms[name]
-        c.Unlock()
-        if cok == true {
-            c.Lock()
-    		delete(c.Rooms, name)
-		    c.Unlock()
-		    room.Leave(c)
-        }
+		_, cok := c.Rooms[name]
+		c.Unlock()
+		if cok == true {
+			c.Lock()
+			delete(c.Rooms, name)
+			c.Unlock()
+			room.Leave(c)
+		}
 	}
 }
 
