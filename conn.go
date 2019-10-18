@@ -33,7 +33,7 @@ type Conn struct {
 	Socket *websocket.Conn
 	ID     string
 	Send   chan []byte
-	Rooms  map[string]*Room
+	Rooms  map[string]string
 }
 
 type CookieReader func(*http.Request) map[string]string
@@ -75,29 +75,35 @@ func HandleData(c *Conn, msg *Message) {
 	case "left":
 		c.Emit(msg)
 		RoomManager.Lock()
-		room := RoomManager.Rooms[msg.Room]
+		room, ok := RoomManager.Rooms[msg.Room]
 		RoomManager.Unlock()
-		room.Lock()
-		delete(room.Members, c.ID)
-		if len(room.Members) == 0 {
-			room.Unlock()
-			room.Stop()
-		} else {
-			room.Unlock()
-		}
+		if ok == true {
+			room.Lock()
+            delete(room.Members, c.ID)
+            members := len(room.Members)
+            room.Unlock()
+			if members == 0 {
+				room.Stop()
+			}
+        }
 	default:
 		if msg.Dst != "" {
-			c.Lock()
-			room, ok := c.Rooms[msg.Room]
-			c.Unlock()
-			if ok {
-				room.Lock()
-				dst, ok := room.Members[msg.Dst]
-				room.Unlock()
-				if ok {
-					dst.Send <- msg.Bytes()
-				}
-			}
+			RoomManager.Lock()
+			room, rok := RoomManager.Rooms[msg.Room]
+			RoomManager.Unlock()
+            if rok == true {
+                room.Lock()
+                id, mok := room.Members[msg.Dst]
+                room.Unlock()
+			    if mok == true {
+				    ConnManager.Lock()
+			    	dst, cok := ConnManager.Conns[id]
+				    ConnManager.Unlock()
+				    if cok == true {
+				    	dst.Send <- msg.Bytes()
+				    }
+			    }
+            }
 		} else if Emitter.GetListenerCount(msg.Event) > 0 {
 			Emitter.Emit(msg.Event, c, msg)
 		} else {
@@ -109,8 +115,15 @@ func HandleData(c *Conn, msg *Message) {
 func (c *Conn) readPump() {
 	defer func() {
 		c.Lock()
-		for _, room := range c.Rooms {
-			room.Leave(c)
+		for name := range c.Rooms {
+            c.Unlock()
+            RoomManager.Lock()
+            room, ok := RoomManager.Rooms[name]
+            RoomManager.Unlock()
+            if ok == true {
+                room.Leave(c)
+            }
+            c.Lock()
 		}
 		c.Unlock()
 		c.Socket.Close()
@@ -124,18 +137,24 @@ func (c *Conn) readPump() {
 	for {
 		_, data, err := c.Socket.ReadMessage()
 		if err != nil {
-			if _, ok := err.(*websocket.CloseError); ok {
+			if _, wok := err.(*websocket.CloseError); wok == true {
 				c.Lock()
-				for name, room := range c.Rooms {
-					room.Emit(c, ConstructMessage(name, "left", "", c.ID, []byte(c.ID)))
-					room.Lock()
-					delete(room.Members, c.ID)
-					if len(room.Members) == 0 {
+				for name := range c.Rooms {
+                    c.Unlock()
+                    RoomManager.Lock()
+                    room, rok := RoomManager.Rooms[name]
+                    RoomManager.Unlock()
+                    if rok == true {
+					    room.Emit(c, ConstructMessage(name, "left", "", c.ID, []byte(c.ID)))
+					    room.Lock()
+					    delete(room.Members, c.ID)
+                        members := len(room.Members)
 						room.Unlock()
-						room.Stop()
-					} else {
-						room.Unlock()
-					}
+					    if members == 0 {
+						    room.Stop()
+					    }
+                    }
+                    c.Lock()
 				}
 				c.Unlock()
 			}
@@ -179,11 +198,11 @@ func (c *Conn) Join(name string) {
 	RoomManager.Lock()
 	room, ok := RoomManager.Rooms[name]
 	RoomManager.Unlock()
-	if !ok {
+	if ok == false {
 		room = NewRoom(name)
 	}
 	c.Lock()
-	c.Rooms[name] = room
+	c.Rooms[name] = name
 	c.Unlock()
 	room.Join(c)
 }
@@ -191,13 +210,18 @@ func (c *Conn) Join(name string) {
 // Removes the Conn from a Room.
 func (c *Conn) Leave(name string) {
 	RoomManager.Lock()
-	room, ok := RoomManager.Rooms[name]
+	room, rok := RoomManager.Rooms[name]
 	RoomManager.Unlock()
-	if ok {
+	if rok == true {
 		c.Lock()
-		delete(c.Rooms, name)
-		c.Unlock()
-		room.Leave(c)
+        _, cok := c.Rooms[name]
+        c.Unlock()
+        if cok == true {
+            c.Lock()
+    		delete(c.Rooms, name)
+		    c.Unlock()
+		    room.Leave(c)
+        }
 	}
 }
 
@@ -206,7 +230,7 @@ func (c *Conn) Emit(msg *Message) {
 	RoomManager.Lock()
 	room, ok := RoomManager.Rooms[msg.Room]
 	RoomManager.Unlock()
-	if ok {
+	if ok == true {
 		room.Emit(c, msg)
 	}
 }
@@ -225,7 +249,7 @@ func NewConnection(w http.ResponseWriter, r *http.Request, cr CookieReader) *Con
 		Socket: socket,
 		ID:     id.String(),
 		Send:   make(chan []byte, 256),
-		Rooms:  make(map[string]*Room),
+		Rooms:  make(map[string]string),
 	}
 	if cr != nil {
 		c.Cookie = cr(r)

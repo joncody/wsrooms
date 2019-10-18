@@ -26,7 +26,7 @@ import (
 type Room struct {
 	sync.Mutex
 	Name      string
-	Members   map[string]*Conn
+	Members   map[string]string
 	Stopchan  chan bool
 	Joinchan  chan *Conn
 	Leavechan chan *Conn
@@ -49,9 +49,11 @@ func (r *Room) Start() {
 			members := make([]string, 0)
 			r.Lock()
 			for id := range r.Members {
+				r.Unlock()
 				members = append(members, id)
+				r.Lock()
 			}
-			r.Members[c.ID] = c
+			r.Members[c.ID] = c.ID
 			r.Unlock()
 			payload, err := json.Marshal(members)
 			if err != nil {
@@ -61,26 +63,34 @@ func (r *Room) Start() {
 			c.Send <- ConstructMessage(r.Name, "join", "", c.ID, payload).Bytes()
 		case c := <-r.Leavechan:
 			r.Lock()
-			_, ok := r.Members[c.ID]
+			id, ok := r.Members[c.ID]
 			r.Unlock()
-			if ok {
+			if ok == true {
 				r.Lock()
-				delete(r.Members, c.ID)
+				delete(r.Members, id)
 				r.Unlock()
+				c.Send <- ConstructMessage(r.Name, "leave", "", id, []byte(c.ID)).Bytes()
 			}
-			c.Send <- ConstructMessage(r.Name, "leave", "", c.ID, []byte(c.ID)).Bytes()
 		case rmsg := <-r.Send:
 			r.Lock()
-			for id, c := range r.Members {
-				if c == rmsg.Sender {
+			for id := range r.Members {
+				r.Unlock()
+				ConnManager.Lock()
+				c, ok := ConnManager.Conns[id]
+				ConnManager.Unlock()
+				if !ok || c == rmsg.Sender {
+					r.Lock()
 					continue
 				}
 				select {
 				case c.Send <- rmsg.Data:
 				default:
+					r.Lock()
 					delete(r.Members, id)
+					r.Unlock()
 					close(c.Send)
 				}
+				r.Lock()
 			}
 			r.Unlock()
 		case <-r.Stopchan:
@@ -116,7 +126,7 @@ func (r *Room) Emit(c *Conn, msg *Message) {
 func NewRoom(name string) *Room {
 	r := &Room{
 		Name:      name,
-		Members:   make(map[string]*Conn),
+		Members:   make(map[string]string),
 		Stopchan:  make(chan bool),
 		Joinchan:  make(chan *Conn),
 		Leavechan: make(chan *Conn),
