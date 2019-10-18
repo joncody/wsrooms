@@ -27,9 +27,9 @@ type Room struct {
 	sync.Mutex
 	Name      string
 	Members   map[string]string
-	Stopchan  chan bool
-	Joinchan  chan *Conn
-	Leavechan chan *Conn
+	stopchan  chan bool
+	joinchan  chan *Conn
+	leavechan chan *Conn
 	Send      chan *RoomMessage
 }
 
@@ -45,7 +45,7 @@ var RoomManager = struct {
 func (r *Room) Start() {
 	for {
 		select {
-		case c := <-r.Joinchan:
+		case c := <-r.joinchan:
 			members := make([]string, 0)
 			r.Lock()
 			for id := range r.Members {
@@ -61,7 +61,7 @@ func (r *Room) Start() {
 				break
 			}
 			c.Send <- ConstructMessage(r.Name, "join", "", c.ID, payload).Bytes()
-		case c := <-r.Leavechan:
+		case c := <-r.leavechan:
 			r.Lock()
 			id, ok := r.Members[c.ID]
 			r.Unlock()
@@ -93,7 +93,7 @@ func (r *Room) Start() {
 				r.Lock()
 			}
 			r.Unlock()
-		case <-r.Stopchan:
+		case <-r.stopchan:
 			RoomManager.Lock()
 			delete(RoomManager.Rooms, r.Name)
 			RoomManager.Unlock()
@@ -104,17 +104,17 @@ func (r *Room) Start() {
 
 // Stops the Room.
 func (r *Room) Stop() {
-	r.Stopchan <- true
+	r.stopchan <- true
 }
 
 // Adds a Conn to the Room.
 func (r *Room) Join(c *Conn) {
-	r.Joinchan <- c
+	r.joinchan <- c
 }
 
 // Removes a Conn from the Room.
 func (r *Room) Leave(c *Conn) {
-	r.Leavechan <- c
+	r.leavechan <- c
 }
 
 // Broadcasts data to all members of the Room.
@@ -127,9 +127,9 @@ func NewRoom(name string) *Room {
 	r := &Room{
 		Name:      name,
 		Members:   make(map[string]string),
-		Stopchan:  make(chan bool),
-		Joinchan:  make(chan *Conn),
-		Leavechan: make(chan *Conn),
+		stopchan:  make(chan bool),
+		joinchan:  make(chan *Conn),
+		leavechan: make(chan *Conn),
 		Send:      make(chan *RoomMessage),
 	}
 	RoomManager.Lock()
