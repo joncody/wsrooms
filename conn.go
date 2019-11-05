@@ -77,33 +77,37 @@ func HandleData(c *Conn, msg *Message) {
 		RoomManager.Lock()
 		room, ok := RoomManager.Rooms[msg.Room]
 		RoomManager.Unlock()
-		if ok == true {
-			room.Lock()
-			delete(room.Members, c.ID)
-			members := len(room.Members)
-			room.Unlock()
-			if members == 0 {
-				room.Stop()
-			}
+		if ok == false {
+			break
+		}
+		room.Lock()
+		delete(room.Members, c.ID)
+		members := len(room.Members)
+		room.Unlock()
+		if members == 0 {
+			room.Stop()
 		}
 	default:
 		if msg.Dst != "" {
 			RoomManager.Lock()
 			room, rok := RoomManager.Rooms[msg.Room]
 			RoomManager.Unlock()
-			if rok == true {
-				room.Lock()
-				id, mok := room.Members[msg.Dst]
-				room.Unlock()
-				if mok == true {
-					ConnManager.Lock()
-					dst, cok := ConnManager.Conns[id]
-					ConnManager.Unlock()
-					if cok == true {
-						dst.Send <- msg.Bytes()
-					}
-				}
+			if rok == false {
+				break
 			}
+			room.Lock()
+			id, mok := room.Members[msg.Dst]
+			room.Unlock()
+			if mok == false {
+				break
+			}
+			ConnManager.Lock()
+			dst, cok := ConnManager.Conns[id]
+			ConnManager.Unlock()
+			if cok == false {
+				break
+			}
+			dst.Send <- msg.Bytes()
 		} else if Emitter.GetListenerCount(msg.Event) > 0 {
 			Emitter.Emit(msg.Event, c, msg)
 		} else {
@@ -137,27 +141,30 @@ func (c *Conn) readPump() {
 	for {
 		_, data, err := c.Socket.ReadMessage()
 		if err != nil {
-			if _, wok := err.(*websocket.CloseError); wok == true {
-				c.Lock()
-				for name := range c.Rooms {
-					c.Unlock()
-					RoomManager.Lock()
-					room, rok := RoomManager.Rooms[name]
-					RoomManager.Unlock()
-					if rok == true {
-						room.Emit(c, ConstructMessage(name, "left", "", c.ID, []byte(c.ID)))
-						room.Lock()
-						delete(room.Members, c.ID)
-						members := len(room.Members)
-						room.Unlock()
-						if members == 0 {
-							room.Stop()
-						}
-					}
-					c.Lock()
-				}
-				c.Unlock()
+			if _, wok := err.(*websocket.CloseError); wok == false {
+				break
 			}
+			c.Lock()
+			for name := range c.Rooms {
+				c.Unlock()
+				RoomManager.Lock()
+				room, rok := RoomManager.Rooms[name]
+				RoomManager.Unlock()
+				if rok == false {
+					c.Lock()
+					continue
+				}
+				room.Emit(c, ConstructMessage(name, "left", "", c.ID, []byte(c.ID)))
+				room.Lock()
+				delete(room.Members, c.ID)
+				members := len(room.Members)
+				room.Unlock()
+				if members == 0 {
+					room.Stop()
+				}
+				c.Lock()
+			}
+			c.Unlock()
 			break
 		}
 		HandleData(c, BytesToMessage(data))
@@ -178,7 +185,7 @@ func (c *Conn) writePump() {
 	for {
 		select {
 		case msg, ok := <-c.Send:
-			if !ok {
+			if ok == false {
 				c.write(websocket.CloseMessage, []byte{})
 				return
 			}
@@ -212,17 +219,19 @@ func (c *Conn) Leave(name string) {
 	RoomManager.Lock()
 	room, rok := RoomManager.Rooms[name]
 	RoomManager.Unlock()
-	if rok == true {
-		c.Lock()
-		_, cok := c.Rooms[name]
-		c.Unlock()
-		if cok == true {
-			c.Lock()
-			delete(c.Rooms, name)
-			c.Unlock()
-			room.Leave(c)
-		}
+	if rok == false {
+		return
 	}
+	c.Lock()
+	_, cok := c.Rooms[name]
+	c.Unlock()
+	if cok == false {
+		return
+	}
+	c.Lock()
+	delete(c.Rooms, name)
+	c.Unlock()
+	room.Leave(c)
 }
 
 // Broadcasts a Message to all members of a Room.

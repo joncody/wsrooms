@@ -65,12 +65,13 @@ func (r *Room) Start() {
 			r.Lock()
 			id, ok := r.Members[c.ID]
 			r.Unlock()
-			if ok == true {
-				r.Lock()
-				delete(r.Members, id)
-				r.Unlock()
-				c.Send <- ConstructMessage(r.Name, "leave", "", id, []byte(c.ID)).Bytes()
+			if ok == false {
+				break
 			}
+			r.Lock()
+			delete(r.Members, id)
+			r.Unlock()
+			c.Send <- ConstructMessage(r.Name, "leave", "", id, []byte(c.ID)).Bytes()
 		case rmsg := <-r.Send:
 			r.Lock()
 			for id := range r.Members {
