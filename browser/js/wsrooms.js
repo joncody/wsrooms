@@ -21,18 +21,18 @@
         return console.log("WebSocket is not supported by this browser.");
     }
 
-    var rooms = {};
-    var socket;
-    var reserved = ["open", "close", "joined", "join", "leave", "left"];
+    const rooms = {};
+    const reserved = ["open", "close", "joined", "join", "leave", "left"];
+    let socket;
 
     function getRoom(name) {
-        var room = gg.emitter();
-        var store = {
+        const room = gg.emitter();
+        const store = {
             open: false,
             id: "",
             members: []
         };
-        var initdata;
+        let initdata;
 
         if (typeof name !== "string") {
             return console.log("name is not a string");
@@ -56,8 +56,8 @@
         };
 
         room.send = function (event, payload, dst) {
-            var src = store.id;
-            var data;
+            const src = store.id;
+            let data;
 
             if (store.open === false) {
                 return console.log("socket is closed");
@@ -104,7 +104,7 @@
         };
 
         room.leave = function () {
-            var data;
+            let data;
 
             if (store.open === false) {
                 return console.log("socket is closed");
@@ -119,8 +119,8 @@
         };
 
         room.parse = function (packet) {
-            var index;
-            var data;
+            let index;
+            let data;
 
             switch (packet.event) {
             case "join":
@@ -209,7 +209,7 @@
     }
 
     function wsrooms(url) {
-        var root = getRoom("root");
+        const root = getRoom("root");
 
         if (typeof url !== "string") {
             return console.log("url must be a string");
@@ -218,8 +218,8 @@
         socket.binaryType = "arraybuffer";
 
         socket.onmessage = function (e) {
-            var data = gg.betterview(e.data);
-            var packet = {
+            const data = gg.betterview(e.data);
+            const packet = {
                 room: data.getString(data.getUint32()),
                 event: data.getString(data.getUint32()),
                 dst: data.getString(data.getUint32()),

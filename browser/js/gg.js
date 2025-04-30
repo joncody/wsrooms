@@ -17,8 +17,8 @@
 (function (global) {
     "use strict";
 
-    var cdb;
-    var ease = Object.freeze({
+    let cdb;
+    const ease = Object.freeze({
         linearTween: function (t, b, c, d) {
             return c * t / d + b;
         },
@@ -130,9 +130,9 @@
             return c / 2 * (Math.sqrt(1 - t * t) + 1) + b;
         }
     });
-    var ggid = (function () {
-        var id = 0;
-        var maxint = Math.pow(2, 53) - 1;
+    const ggid = (function () {
+        let id = 0;
+        const maxint = Math.pow(2, 53) - 1;
 
         return function () {
             id = id < maxint
@@ -141,13 +141,13 @@
             return id;
         };
     }());
-    var indexedDB = global.indexedDB || global.mozIndexedDB || global.webkitIndexedDB || global.msIndexedDB;
-    var keyboardListener;
-    var keyboardListeners = [];
-    var listeners = {};
-    var mouseListener;
-    var mouseListeners = [];
-    var taglist = [
+    const indexedDB = global.indexedDB || global.mozIndexedDB || global.webkitIndexedDB || global.msIndexedDB;
+    let keyboardListener;
+    const keyboardListeners = [];
+    const listeners = {};
+    let mouseListener;
+    const mouseListeners = [];
+    const taglist = [
         "a",
         "abbr",
         "address",
@@ -249,10 +249,10 @@
     // FIXES
     if (ArrayBuffer.prototype.slice === undefined) {
         ArrayBuffer.prototype.slice = function (start, end) {
-            var that = new Uint8Array(this);
-            var result;
-            var resultarray;
-            var i;
+            let that = new Uint8Array(this);
+            let result;
+            let resultarray;
+            let i;
 
             if (end === undefined) {
                 end = that.length;
@@ -271,7 +271,7 @@
     };
 
     function typeOf(value) {
-        var type = typeof value;
+        let type = typeof value;
 
         if (Array.isArray(value)) {
             type = "array";
@@ -350,7 +350,7 @@
     }
 
     function isTypedArray(value) {
-        var types = [
+        const types = [
             "Int8Array",
             "Uint8Array",
             "Uint8ClampedArray",
@@ -361,14 +361,14 @@
             "Float32Array",
             "Float64Array"
         ];
-        var type = Object.prototype.toString.call(value).replace(/\[object\s(\w+)\]/, "$1");
+        let type = Object.prototype.toString.call(value).replace(/\[object\s(\w+)\]/, "$1");
 
         return types.indexOf(type) > -1;
     }
 
     // TO
     function toArray(value) {
-        var list;
+        let list;
 
         if (isGG(value)) {
             list = value.length() === 1
@@ -391,7 +391,7 @@
     }
 
     function toCodesFromString(value) {
-        var codes = [];
+        const codes = [];
 
         toArray(value).forEach(function (char) {
             codes.push(char.charCodeAt(0));
@@ -400,7 +400,7 @@
     }
 
     function toFloat(value, decimals) {
-        var float = global.parseFloat(isString(value)
+        const float = global.parseFloat(isString(value)
             ? value.replace(",", "")
             : value);
 
@@ -418,7 +418,7 @@
     }
 
     function toInt(value, radix) {
-        var int = global.parseInt(isString(value)
+        const int = global.parseInt(isString(value)
             ? value.replace(",", "")
             : value, isNumber(radix)
                 ? radix
@@ -430,7 +430,7 @@
     }
 
     function toUint8(value) {
-        var uint8;
+        let uint8;
 
         if (isGG(value)) {
             uint8 = new Uint8Array(value.length() === 1
@@ -451,7 +451,7 @@
     }
 
     function toStringFromCodes(value) {
-        var string = "";
+        let string = "";
 
         toArray(value).forEach(function (char) {
             string += String.fromCharCode(char);
@@ -461,7 +461,7 @@
 
     // MISCELLANEOUS
     function betterview(value, offset, length) {
-        var numbersandbytes = {
+        const numbersandbytes = {
             "Int8": 1,
             "Uint8": 1,
             "Int16": 2,
@@ -471,8 +471,8 @@
             "Float32": 4,
             "Float64": 8
         };
-        var better = {};
-        var store = {};
+        const better = {};
+        const store = {};
 
         store.buffer = toBuffer(value);
         store.view = new DataView(store.buffer, offset || 0, length || store.buffer.byteLength);
@@ -529,8 +529,8 @@
         }
 
         function setBytes(offset, value) {
-            var bytes = toUint8(value);
-            var len = bytes.byteLength || bytes.length || 0;
+            const bytes = toUint8(value);
+            const len = bytes.byteLength || bytes.length || 0;
 
             offset = offset === undefined
                 ? store.offset
@@ -542,8 +542,8 @@
         }
 
         function writeBytes(value) {
-            var bytes = toUint8(value);
-            var len = bytes.byteLength || bytes.length || 0;
+            const bytes = toUint8(value);
+            const len = bytes.byteLength || bytes.length || 0;
 
             checkBounds(store.offset, len);
             toUint8(store.view.buffer).set(bytes, store.offset);
@@ -622,7 +622,7 @@
         better.setChar = setChar;
         better.writeChar = writeChar;
         Object.keys(numbersandbytes).forEach(function (type) {
-            var bytes = numbersandbytes[type];
+            const bytes = numbersandbytes[type];
 
             better["get" + type] = getNumber(type, bytes);
             better["set" + type] = setNumber(type, bytes);
@@ -632,7 +632,7 @@
     }
 
     function copy(value) {
-        var c;
+        let c;
 
         if (isObject(value)) {
             c = {};
@@ -672,14 +672,14 @@
     }
 
     function emitter(value) {
-        var em = (value && typeof value === "object")
+        const em = (value && typeof value === "object")
             ? value
             : {};
         em.emitter = true;
         em.events = {};
 
         em.addListener = function (type, listener) {
-            var list = em.events[type];
+            const list = em.events[type];
 
             if (typeof listener === "function") {
                 if (em.events.newListener) {
@@ -710,8 +710,8 @@
         };
 
         em.removeListener = function (type, listener) {
-            var list = em.events[type];
-            var position = -1;
+            const list = em.events[type];
+            let position = -1;
 
             if (typeof listener === "function" && list) {
                 list.some(function (value, index) {
@@ -736,7 +736,7 @@
         em.off = em.removeListener;
 
         em.removeAllListeners = function (type) {
-            var list;
+            let list;
 
             if (!em.events.removeListener) {
                 if (!type) {
@@ -764,7 +764,7 @@
         };
 
         em.listeners = function (type) {
-            var list = [];
+            const list = [];
 
             if (typeof type === "string" && em.events[type]) {
                 list = em.events[type];
@@ -777,9 +777,9 @@
         };
 
         em.emit = function (type) {
-            var list = em.events[type];
-            var emitted = false;
-            var args;
+            const list = em.events[type];
+            let emitted = false;
+            let args;
 
             if (list) {
                 args = Array.prototype.slice.call(arguments, 1);
@@ -835,7 +835,7 @@
 
     function supplant(value, supplanter) {
         function replaceExpression(expression, key) {
-            var val = supplanter[key];
+            const val = supplanter[key];
 
             return !isUndefined(val)
                 ? val
@@ -847,11 +847,11 @@
     }
 
     function uuid() {
-        var id = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx";
+        let id = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx";
 
         return id.replace(/[xy]/g, function (char) {
-            var rand = Math.random() * 16 | 0;
-            var code = char === "x"
+            const rand = Math.random() * 16 | 0;
+            const code = char === "x"
                 ? rand
                 : rand & 0x3 | 0x8;
 
@@ -861,7 +861,7 @@
 
     // GET
     function getPosition(node) {
-        var pos = {
+        const pos = {
             x: 0,
             y: 0
         };
@@ -890,7 +890,7 @@
 
     // TIMEOUT
     function setImmediate(executable) {
-        var args = arrSlice(arguments, 1);
+        const args = arrSlice(arguments, 1);
 
         if (!isFunction(executable)) {
             return;
@@ -917,25 +917,25 @@
 
     // SCROLL
     function scrollIntoView(node, easingExec) {
-        var el = isGG(node)
+        const el = isGG(node)
             ? node.raw(0)
             : node;
-        var executable = !isFunction(easingExec)
+        const executable = !isFunction(easingExec)
             ? ease.easeInOutSine
             : easingExec
-        var relativeTo = document.body;
-        var animation;
-        var max = relativeTo.scrollHeight - global.innerHeight;
-        var current = 0;
-        var start = relativeTo.scrollTop;
-        var end = relativeTo.scrollTop + getPosition(el).y > max
+        const relativeTo = document.body;
+        let animation;
+        const max = relativeTo.scrollHeight - global.innerHeight;
+        let current = 0;
+        const start = relativeTo.scrollTop;
+        const end = relativeTo.scrollTop + getPosition(el).y > max
             ? max
             : relativeTo.scrollTop + getPosition(el).y;
-        var framerate = 60 / 1000;
-        var duration = 1200;
+        const framerate = 60 / 1000;
+        const duration = 1200;
 
         function step() {
-            var newval;
+            let newval;
 
             if (current >= framerate * duration) {
                 return global.cancelAnimationFrame(animation);
@@ -950,21 +950,21 @@
     }
 
     function scrollToTop(node, easingExec) {
-        var el = isGG(node)
+        const el = isGG(node)
             ? node.raw(0)
             : node;
-        var executable = !isFunction(easingExec)
+        const executable = !isFunction(easingExec)
             ? ease.easeInOutSine
             : easingExec
-        var animation;
-        var current = 0;
-        var start = el.scrollTop;
-        var end = 0;
-        var framerate = 60 / 1000;
-        var duration = 1200;
+        let animation;
+        let current = 0;
+        const start = el.scrollTop;
+        const end = 0;
+        const framerate = 60 / 1000;
+        const duration = 1200;
 
         function step() {
-            var newval;
+            let newval;
 
             if (current >= framerate * duration) {
                 return global.cancelAnimationFrame(animation);
@@ -980,10 +980,10 @@
 
     // GG
     function gg(mselector, supplanter) {
-        var gobject = {
+        const gobject = {
             gg: true
         };
-        var store = [];
+        const store = [];
 
         function closure(executable, node, arg) {
             return function (e) {
@@ -992,9 +992,9 @@
         }
 
         function cloneNodeDeeper(node) {
-            var nodeid;
-            var cloneid;
-            var clone;
+            let nodeid;
+            let cloneid;
+            let clone;
 
             if (isGG(node) && node.length() === 1) {
                 node = node.raw();
@@ -1016,10 +1016,10 @@
             each(listeners[nodeid], function (list, type) {
                 listeners[cloneid][type] = {};
                 each(list, function (params, execid) {
-                    var executable = params[0];
-                    var bub = params[2];
-                    var arg = params[3];
-                    var closedExecutable = closure(executable, clone, arg);
+                    const executable = params[0];
+                    const bub = params[2];
+                    const arg = params[3];
+                    const closedExecutable = closure(executable, clone, arg);
 
                     listeners[cloneid][type][execid] = [executable, closedExecutable, bub, arg];
                     clone.addEventListener(type, closedExecutable, bub);
@@ -1060,7 +1060,7 @@
             }
             each(store, function (node) {
                 value.split(/\s/g).forEach(function (substring) {
-                    var match = new RegExp("(?:^|\\s)" + substring + "(?:$|\\s)", "g");
+                    const match = new RegExp("(?:^|\\s)" + substring + "(?:$|\\s)", "g");
 
                     if (!isObject(node.className)) {
                         node.className = match.test(node.className)
@@ -1077,7 +1077,7 @@
         };
 
         gobject.after = function (value) {
-            var willcopy = store.length > 1;
+            const willcopy = store.length > 1;
 
             if (isString(value)) {
                 value = gg(value);
@@ -1096,7 +1096,7 @@
         };
 
         gobject.append = function (value) {
-            var willcopy = store.length > 1;
+            const willcopy = store.length > 1;
 
             if (isString(value)) {
                 value = gg(value);
@@ -1115,7 +1115,7 @@
         };
 
         gobject.appendTo = function (value) {
-            var willcopy = toArray(value).length > 1;
+            const willcopy = toArray(value).length > 1;
 
             if (isString(value)) {
                 value = gg(value);
@@ -1134,8 +1134,8 @@
         };
 
         gobject.attr = function (name, value) {
-            var attrname = isString(name) && toCamelCase(name);
-            var values;
+            const attrname = isString(name) && toCamelCase(name);
+            let values;
 
             if (isObject(name)) {
                 each(name, function (value, key) {
@@ -1167,7 +1167,7 @@
         };
 
         gobject.before = function (value) {
-            var willcopy = store.length > 1;
+            const willcopy = store.length > 1;
 
             if (isString(value)) {
                 value = gg(value);
@@ -1186,7 +1186,7 @@
         };
 
         gobject.children = function () {
-            var nodes = [];
+            const nodes = [];
 
             each(store, function (node) {
                 nodes = nodes.concat(toArray(node.childNodes));
@@ -1195,7 +1195,7 @@
         };
 
         gobject.classes = function (value) {
-            var values = [];
+            const values = [];
 
             if (isUndefined(value)) {
                 each(store, function (node) {
@@ -1217,7 +1217,7 @@
         };
 
         gobject.clone = function (deep, deeper) {
-            var nodes = [];
+            const nodes = [];
 
             deep = isBoolean(deep)
                 ? deep
@@ -1240,10 +1240,10 @@
         };
 
         gobject.data = function (name, value) {
-            var dataname = (isString(name) && (name.length < 4 || name.slice(0, 4) !== "data"))
+            const dataname = (isString(name) && (name.length < 4 || name.slice(0, 4) !== "data"))
                 ? toHyphenated("data-" + name)
                 : toHyphenated(name);
-            var values;
+            let values;
 
             if (isObject(name)) {
                 each(name, function (value, key) {
@@ -1294,14 +1294,14 @@
         };
 
         gobject.hasClass = function (value) {
-            var values = [];
+            const values = [];
 
             if (!isString(value)) {
                 return false;
             }
             each(store, function (node) {
                 values.push(value.split(/\s/g).every(function (substring) {
-                    var match = new RegExp("(?:^|\\s)" + substring + "(?:$|\\s)", "g");
+                    const match = new RegExp("(?:^|\\s)" + substring + "(?:$|\\s)", "g");
 
                     if (!isObject(node.className)) {
                         return match.test(node.className);
@@ -1318,7 +1318,7 @@
         };
 
         gobject.html = function (value) {
-            var values = [];
+            const values = [];
 
             if (isUndefined(value)) {
                 each(store, function (node) {
@@ -1340,7 +1340,7 @@
         };
 
         gobject.insert = (function () {
-            var positions = ["beforebegin", "afterbegin", "beforeend", "afterend"];
+            const positions = ["beforebegin", "afterbegin", "beforeend", "afterend"];
 
             return function (pos, value) {
                 if (!isString(value)) {
@@ -1368,8 +1368,8 @@
                 ? bub
                 : false;
             each(store, function (node) {
-                var nodeid = global.parseInt(node.getAttribute("data-gg-id"), 10);
-                var execid = isFunction(executable) && executable.ggid;
+                const nodeid = global.parseInt(node.getAttribute("data-gg-id"), 10);
+                const execid = isFunction(executable) && executable.ggid;
 
                 if (!isNumber(nodeid) || !listeners.hasOwnProperty(nodeid) || !listeners[nodeid].hasOwnProperty(type)) {
                     return gobject;
@@ -1388,8 +1388,8 @@
         };
 
         gobject.on = function (type, executable, bub, arg) {
-            var execid;
-            var closedExecutable;
+            let execid;
+            let closedExecutable;
 
             if (!isString(type) || !isFunction(executable)) {
                 return gobject;
@@ -1402,7 +1402,7 @@
                 : ggid();
             executable.ggid = execid;
             each(store, function (node) {
-                var nodeid = !isNumber(global.parseInt(node.getAttribute("data-gg-id"), 10))
+                const nodeid = !isNumber(global.parseInt(node.getAttribute("data-gg-id"), 10))
                     ? ggid()
                     : global.parseInt(node.getAttribute("data-gg-id"), 10);
 
@@ -1443,7 +1443,7 @@
         };
 
         gobject.parents = function () {
-            var nodes = [];
+            const nodes = [];
 
             each(store, function (node) {
                 nodes.push(node.parentNode);
@@ -1452,7 +1452,7 @@
         };
 
         gobject.prepend = function (value) {
-            var willcopy = store.length > 1;
+            const willcopy = store.length > 1;
 
             if (isString(value)) {
                 value = gg(value);
@@ -1471,7 +1471,7 @@
         };
 
         gobject.prependTo = function (value) {
-            var willcopy = toArray(value).length > 1;
+            const willcopy = toArray(value).length > 1;
 
             if (isString(value)) {
                 value = gg(value);
@@ -1490,8 +1490,8 @@
         };
 
         gobject.prop = function (name, value) {
-            var propname = isString(name) && toCamelCase(name);
-            var values;
+            const propname = isString(name) && toCamelCase(name);
+            let values;
 
             if (isObject(name)) {
                 each(name, function (value, key) {
@@ -1556,7 +1556,7 @@
         };
 
         gobject.remAttr = function (name) {
-            var attrname = isString(name) && toCamelCase(name);
+            const attrname = isString(name) && toCamelCase(name);
 
             if (isObject(name)) {
                 each(name, function (value, key) {
@@ -1580,7 +1580,7 @@
             }
             each(store, function (node) {
                 value.split(/\s/).forEach(function (substring) {
-                    var match = new RegExp("(?:^|\\s)" + substring + "(?:$|\\s)", "g");
+                    const match = new RegExp("(?:^|\\s)" + substring + "(?:$|\\s)", "g");
 
                     if (!isObject(node.className)) {
                         node.className = node.className.replace(match, " ").trim();
@@ -1593,7 +1593,7 @@
         };
 
         gobject.remData = function (name) {
-            var dataname = (isString(name) && (name.length < 4 || name.slice(0, 4) !== "data"))
+            const dataname = (isString(name) && (name.length < 4 || name.slice(0, 4) !== "data"))
                 ? toHyphenated("data-" + name)
                 : toHyphenated(name);
 
@@ -1621,7 +1621,7 @@
         };
 
         gobject.remProp = function (name) {
-            var propname = isString(name) && toCamelCase(name);
+            const propname = isString(name) && toCamelCase(name);
 
             if (isObject(name)) {
                 each(name, function (value, key) {
@@ -1649,7 +1649,7 @@
         };
 
         gobject.select = function (selector, supplanter) {
-            var nodes = [];
+            const nodes = [];
 
             each(store, function (node) {
                 nodes = nodes.concat(toArray(select(selector, supplanter, node)));
@@ -1658,7 +1658,7 @@
         };
 
         gobject.selectAll = function (selector, supplanter) {
-            var nodes = [];
+            const nodes = [];
 
             each(store, function (node) {
                 nodes = nodes.concat(toArray(selectAll(selector, supplanter, node)));
@@ -1674,7 +1674,7 @@
         };
 
         gobject.text = function (value) {
-            var values = [];
+            const values = [];
 
             if (isUndefined(value)) {
                 each(store, function (node) {
@@ -1701,7 +1701,7 @@
             }
             each(store, function (node) {
                 value.split(/\s/).forEach(function (substring) {
-                    var match = new RegExp("(?:^|\\s)" + substring + "(?:$|\\s)", "g");
+                    const match = new RegExp("(?:^|\\s)" + substring + "(?:$|\\s)", "g");
 
                     if (!isObject(node.className)) {
                         node.className = match.test(node.className)
@@ -1729,7 +1729,7 @@
 
     // DEVICES
     keyboardListener = (function () {
-        var common = {
+        const common = {
             "enter": 13,
             "left": 37,
             "up": 38,
@@ -1739,7 +1739,7 @@
 
         function keyDown(options, handlers) {
             return function (e) {
-                var keycode = e.keyCode;
+                const keycode = e.keyCode;
 
                 if (options.preventDefault) {
                     e.preventDefault();
@@ -1750,12 +1750,12 @@
             };
         }
         return function (options) {
-            var handlers = {};
-            var listener;
+            const handlers = {};
+            let listener;
 
             options = extend({}, options);
             each(options, function (handler, key) {
-                var keycode = isString(key) && common.hasOwnProperty(key)
+                const keycode = isString(key) && common.hasOwnProperty(key)
                     ? common[key]
                     : global.parseInt(key, 10);
 
@@ -1770,7 +1770,7 @@
     }());
 
     mouseListener = (function () {
-        var common = {
+        const common = {
             "left": 0,
             "middle": 1,
             "right": 2
@@ -1778,7 +1778,7 @@
 
         function mouseDown(options, handlers) {
             return function (e) {
-                var buttoncode = e.button;
+                const buttoncode = e.button;
 
                 if (options.preventDefault) {
                     e.preventDefault();
@@ -1789,12 +1789,12 @@
             };
         }
         return function (options) {
-            var handlers = {};
-            var listener;
+            const handlers = {};
+            let listener;
 
             options = extend({}, options);
             each(options, function (handler, button) {
-                var buttoncode = isString(button) && common.hasOwnProperty(button)
+                const buttoncode = isString(button) && common.hasOwnProperty(button)
                     ? common[button]
                     : global.parseInt(button, 10);
 
@@ -1871,7 +1871,7 @@
                 return db;
             },
             create: function (table, options, schema) {
-                var tableobj = db.createObjectStore(table, options);
+                const tableobj = db.createObjectStore(table, options);
 
                 if (!schema) {
                     return tableobj;
@@ -1899,7 +1899,7 @@
 
     function dbUpgrade(executable) {
         return function (e) {
-            var db = e.target.result;
+            const db = e.target.result;
 
             db.onerror = dbError;
             executable(e, cdbDatabase(db));
@@ -1907,15 +1907,15 @@
     }
 
     function dbOpenSuccess(e) {
-        var req = e.target;
-        var db = req.result;
+        const req = e.target;
+        const db = req.result;
 
         db.onerror = dbError;
         cdb.emit("open", e, cdbRequest(req, db));
     }
 
     cdb.open = function (name, version, executable) {
-        var request;
+        let request;
 
         if (typeOf(executable) !== "function") {
             executable = typeOf(version) === "function"
@@ -1932,7 +1932,7 @@
     };
 
     cdb.delete = function (name) {
-        var request = indexedDB.deleteDatabase(name);
+        const request = indexedDB.deleteDatabase(name);
 
         request.onerror = dbError;
         request.onsuccess = dbDeleteSuccess;
