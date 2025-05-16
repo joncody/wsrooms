@@ -1,16 +1,13 @@
-(function (global) {
-    'use strict';
+"use strict";
 
-    const socket = wsrooms("ws://localhost:8080/ws");
+import wsrooms from "./wsrooms.js";
 
-    socket.on("joined", function (id) {
-        console.log(id + " joined");
-    });
+const socket = wsrooms("ws://localhost:8080/ws");
 
-    socket.on("left", function (id) {
-        console.log(id + " left");
-    });
+socket.on("joined", function (id) {
+    console.log(id + " joined");
+});
 
-    global.socket = socket;
-
-}(window || this));
+socket.on("left", function (id) {
+    console.log(id + " left");
+});

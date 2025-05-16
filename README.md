@@ -1,114 +1,187 @@
-wsrooms
-=======
+# 🕸️ wsrooms
 
-A [Gorilla WebSocket](https://github.com/gorilla/websocket) implementation with support for rooms.
+**A lightweight, event-driven WebSocket room communication library for Go and JavaScript.**
 
-[![GoDoc](https://godoc.org/github.com/joncody/wsrooms?status.svg)](https://godoc.org/github.com/joncody/wsrooms)
+`wsrooms` enables structured, real-time messaging between clients using named rooms over WebSocket. This project includes both server (Go) and client (JavaScript) implementations using a shared custom binary message protocol.
 
-## Installation
-`go get -u github.com/joncody/wsrooms`
+---
 
-## Browser API
-- [wsrooms](#wsroomsurl---room)
-- [Room](#room)
-  - [on](#onevent-executable)
-  - [name](#name---string)
-  - [open](#open---boolean)
-  - [members](#members---array)
-  - [id](#id---string)
-  - [send](#sendevent-payload-dst)
-  - [join](#joinroomname---room)
-  - [leave](#leave)
-  - [parse](#parsepacket)
-  - [purge](#purge-root-room-only)
-  - [rooms](#rooms-root-room-only)
+## 📦 Features
 
-### wsrooms(url) _-> {Room}_
-> Connects to a wsrooms WebSocket server and returns the root Room.
-###### Parameters
-Name | Type | Description
----- | ---- | -----------
-url | String | The WebSocket URL to connect to.
-<br />
+- Room-based real-time messaging
+- Private/direct messages between clients
+- Custom extensible binary message protocol
+- Event emitter-based client API
+- Auto cleanup of empty rooms
+- Cross-platform: Go server, JS browser client
 
-### Room
-> A wsrooms communication channel.
-#### Properties
-##### name _-> {String}_
-> The Room name.
+---
 
-<br />
+## 🛠️ Installation
 
-#### Methods
-##### on(event, executable)
-> Adds an event listener to the Room.
-###### Parameters
-Name | Type | Description
----- | ---- | -----------
-event | String | The event to listen for.
-executable | Function | The callback to run.
-<br />
+### Go Server
 
-##### open() _-> {Boolean}_
-> Gets the Room connection status.
+```bash
+go get github.com/joncody/wsrooms
+```
 
-<br />
+Dependencies:
+```bash
+go get github.com/gorilla/websocket
+go get github.com/google/uuid
+go get github.com/chuckpreslar/emission
+```
 
-##### members() _-> {Array}_
-> Gets the Room members (a list of their uuids).
+### JavaScript Client
 
-<br />
+Add `wsrooms.js` to your HTML:
 
-##### id() _-> {String}_
-> Gets the local WebSocket connection uuid.
+```html
+<script src="path/to/gg.js"></script>
+<script src="path/to/wsrooms.js"></script>
+```
 
-<br />
+You’ll also need [`gg.js`](https://github.com/joncody/gg) — a utility library for better ArrayBuffer handling and event emitting.
 
-##### send(event, payload, dst)
-> Sends a message to the server.
-###### Parameters
-Name | Type | Description
----- | ---- | -----------
-event | String | The name of the event.
-payload | Any | The message data.
-dst | String (optional, default: "") | The destination uuid.
-<br />
+---
 
-##### join(roomname) _-> {Room}_
-> Joins a Room. If the Room does not exist, it is created.
-###### Parameters
-Name | Type | Description
----- | ---- | -----------
-roomname | String | The name of the room.
-<br />
+## 🚀 Usage Example
 
-##### leave()
-> Leaves the Room.
+### Go Server
 
-<br />
+```go
+package main
 
-##### parse(packet)
-> Handles received messages after they have been converted to an object. The Room emits the event, payload, and source of the message if the event name is not reserved.
-###### Parameters
-Name | Type | Description
----- | ---- | -----------
-packet | Object | The message adhering to the wsrooms protocol.
-<br />
+import (
+	"log"
+	"net/http"
+	"github.com/joncody/wsrooms"
+)
 
-##### purge() *_root room only_
-> Leaves all Rooms other than the root Room.
+func main() {
+	http.HandleFunc("/ws", wsrooms.SocketHandler(nil))
+	log.Println("Server started on :8080")
+	log.Fatal(http.ListenAndServe(":8080", nil))
+}
+```
 
-<br />
+### JavaScript Client
 
-##### rooms() *_root room only_
-> Returns all currently joined rooms.
+```html
+<script>
+    const root = wsrooms("ws://localhost:8080/ws");
 
-<br />
+    root.on("open", function () {
+        console.log("Connected as:", root.id());
+        const chat = root.join("chat");
 
-#### Events
-Name | Parameters | Description
----- | ---------- | -----------
-open | | Fired when the Room has been successfully joined.
-joined | id (String) | Fired when another connection is made to the Room.
-left | id (String) | Fired when another member disconnects from the Room.
-close | | Fired when the Room has been successfully left.
+        chat.on("open", () => {
+            console.log("Joined chat room");
+            chat.send("message", "Hello everyone!");
+        });
+
+        chat.on("message", (payload, from) => {
+            console.log(`Message from ${from}: ${new TextDecoder().decode(payload)}`);
+        });
+
+        chat.on("joined", (id) => {
+            console.log(`${id} joined`);
+        });
+
+        chat.on("left", (id) => {
+            console.log(`${id} left`);
+        });
+    });
+
+    root.on("close", () => {
+        console.log("Socket closed");
+    });
+</script>
+```
+
+---
+
+## 📘 Protocol
+
+Messages are structured in binary format:
+
+| Field         | Type    | Description                  |
+|---------------|---------|------------------------------|
+| RoomLength    | uint32  | Length of room name          |
+| Room          | string  | Room name                    |
+| EventLength   | uint32  | Length of event name         |
+| Event         | string  | Event name                   |
+| DstLength     | uint32  | Length of destination ID     |
+| Dst           | string  | Destination client ID        |
+| SrcLength     | uint32  | Length of source ID          |
+| Src           | string  | Source client ID             |
+| PayloadLength | uint32  | Length of payload            |
+| Payload       | []byte  | Payload (string or binary)   |
+
+---
+
+## 🧠 JavaScript API
+
+### `wsrooms(url: string): Room`
+
+Establishes a connection and returns the `root` room.
+
+---
+
+### Room Object
+
+A room is created automatically when joined.
+
+#### Properties & Methods
+
+| Method / Prop     | Description |
+|-------------------|-------------|
+| `room.name`       | Room name |
+| `room.open()`     | Returns `true` if connection is active |
+| `room.id()`       | Returns the client's unique ID |
+| `room.members()`  | Returns array of member IDs |
+| `room.send(event, payload, dst)` | Sends an event (with optional binary/string payload) |
+| `room.join(name)` | Joins another room |
+| `room.leave()`    | Leaves this room |
+| `room.on(event, fn)` | Subscribes to a room event |
+| `room.clearListeners(exceptions?)` | Removes all listeners except the ones in `exceptions` |
+
+#### Built-in Events
+
+| Event     | Triggered When |
+|-----------|----------------|
+| `open`    | Successfully joined the room |
+| `joined`  | A user joined the room |
+| `left`    | A user left the room |
+| `close`   | Connection to the room was closed |
+
+---
+
+## 📎 Example: Private Message
+
+```javascript
+chat.send("message", "Hey!", "other-client-id");
+```
+
+---
+
+## 🧪 Testing
+
+Use a tool like [WebSocket King](https://websocketking.com/) for manual testing, or use browser devtools console.
+
+Ensure messages are encoded properly using `gg.betterview`.
+
+---
+
+## 🧱 Built With
+
+- Go
+- Gorilla WebSocket
+- emission (Go)
+- [gg.js](https://github.com/joncody/gg)
+
+---
+
+## 📜 License
+
+See the [LICENSE](./LICENSE) file for details.
