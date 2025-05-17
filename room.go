@@ -49,9 +49,7 @@ func (r *Room) Start() {
 			members := make([]string, 0)
 			r.Lock()
 			for id := range r.Members {
-				r.Unlock()
 				members = append(members, id)
-				r.Lock()
 			}
 			r.Members[c.ID] = c.ID
 			r.Unlock()
@@ -64,23 +62,28 @@ func (r *Room) Start() {
 		case c := <-r.leavechan:
 			r.Lock()
 			id, ok := r.Members[c.ID]
-			r.Unlock()
 			if ok == false {
+                r.Unlock()
 				break
 			}
-			r.Lock()
 			delete(r.Members, id)
 			r.Unlock()
 			c.Send <- ConstructMessage(r.Name, "leave", "", id, []byte(c.ID)).Bytes()
 		case rmsg := <-r.Send:
 			r.Lock()
+            members := make([]string, 0)
 			for id := range r.Members {
-				r.Unlock()
+                members = append(members, id)
+            }
+            r.Unlock()
+            for _, id := range members {
+                if id == rmsg.Sender.ID {
+                    continue
+                }
 				ConnManager.Lock()
 				c, ok := ConnManager.Conns[id]
 				ConnManager.Unlock()
-				if !ok || c == rmsg.Sender {
-					r.Lock()
+				if !ok {
 					continue
 				}
 				select {
@@ -91,9 +94,7 @@ func (r *Room) Start() {
 					r.Unlock()
 					close(c.Send)
 				}
-				r.Lock()
 			}
-			r.Unlock()
 		case <-r.stopchan:
 			RoomManager.Lock()
 			delete(RoomManager.Rooms, r.Name)
@@ -128,10 +129,10 @@ func NewRoom(name string) *Room {
 	r := &Room{
 		Name:      name,
 		Members:   make(map[string]string),
-		stopchan:  make(chan bool),
-		joinchan:  make(chan *Conn),
-		leavechan: make(chan *Conn),
-		Send:      make(chan *RoomMessage),
+		stopchan:  make(chan bool, 1),
+		joinchan:  make(chan *Conn, 16),
+		leavechan: make(chan *Conn, 16),
+		Send:      make(chan *RoomMessage, 64),
 	}
 	RoomManager.Lock()
 	RoomManager.Rooms[name] = r

@@ -119,17 +119,19 @@ func HandleData(c *Conn, msg *Message) {
 func (c *Conn) readPump() {
 	defer func() {
 		c.Lock()
+        rooms := make([]string, 0)
 		for name := range c.Rooms {
-			c.Unlock()
+            rooms = append(rooms, name)
+        }
+        c.Unlock()
+        for _, name := range rooms {
 			RoomManager.Lock()
 			room, ok := RoomManager.Rooms[name]
 			RoomManager.Unlock()
 			if ok == true {
 				room.Leave(c)
 			}
-			c.Lock()
 		}
-		c.Unlock()
 		c.Socket.Close()
 	}()
 	c.Socket.SetReadLimit(maxMessageSize)
@@ -257,7 +259,7 @@ func NewConnection(w http.ResponseWriter, r *http.Request, cr CookieReader) *Con
 	c := &Conn{
 		Socket: socket,
 		ID:     id.String(),
-		Send:   make(chan []byte, 256),
+		Send:   make(chan []byte, 1024),
 		Rooms:  make(map[string]string),
 	}
 	if cr != nil {
