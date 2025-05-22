@@ -20,8 +20,7 @@ import (
 	"net/http"
 	"sync"
 	"time"
-
-	"github.com/chuckpreslar/emission"
+    "github.com/chuckpreslar/emission"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
@@ -119,19 +118,17 @@ func HandleData(c *Conn, msg *Message) {
 func (c *Conn) readPump() {
 	defer func() {
 		c.Lock()
-        rooms := make([]string, 0)
 		for name := range c.Rooms {
-            rooms = append(rooms, name)
-        }
-        c.Unlock()
-        for _, name := range rooms {
+			c.Unlock()
 			RoomManager.Lock()
 			room, ok := RoomManager.Rooms[name]
 			RoomManager.Unlock()
 			if ok == true {
 				room.Leave(c)
 			}
+			c.Lock()
 		}
+		c.Unlock()
 		c.Socket.Close()
 	}()
 	c.Socket.SetReadLimit(maxMessageSize)
@@ -259,7 +256,7 @@ func NewConnection(w http.ResponseWriter, r *http.Request, cr CookieReader) *Con
 	c := &Conn{
 		Socket: socket,
 		ID:     id.String(),
-		Send:   make(chan []byte, 1024),
+		Send:   make(chan []byte, 256),
 		Rooms:  make(map[string]string),
 	}
 	if cr != nil {

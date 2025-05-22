@@ -110,7 +110,7 @@ function getRoom(name) {
             store.members = JSON.parse(gg.utils.toStringFromCodes(packet.payload));
             store.open = true;
             room.emit("open");
-            socket.send(buildMessage(name, "joined", store.id, store.id, ""))
+            socket.send(buildMessage(name, "joined", "", store.id, store.id))
             break;
         case "joined":
             packet.payload = gg.utils.toStringFromCodes(packet.payload);
@@ -121,7 +121,7 @@ function getRoom(name) {
             }
             break;
         case "leave":
-            socket.send(buildMessage(name, "left", store.id, store.id, ""));
+            socket.send(buildMessage(name, "left", "", store.id, store.id));
             room.emit("close");
             store.open = false;
             store.members = [];
@@ -183,7 +183,6 @@ export default function wsrooms(url) {
 
     socket.onmessage = function (e) {
         const data = gg.betterview(e.data);
-        global.data = data;
         const packet = {
             room: data.getString(data.getUint32()),
             event: data.getString(data.getUint32()),
@@ -191,6 +190,7 @@ export default function wsrooms(url) {
             src: data.getString(data.getUint32()),
             payload: data.getBytes(data.getUint32())
         };
+        console.log(packet);
 
         if (!rooms.hasOwnProperty(packet.room)) {
             return console.warn("Room " + packet.room + " does not exist.");
