@@ -1,18 +1,18 @@
-//    Title: conn.go
-//    Author: Jon Cody
+// Title: conn.go
+// Author: Jon Cody
 //
-//    This program is free software: you can redistribute it and/or modify
-//    it under the terms of the GNU General Public License as published by
-//    the Free Software Foundation, either version 3 of the License, or
-//    (at your option) any later version.
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 //
-//    This program is distributed in the hope that it will be useful,
-//    but WITHOUT ANY WARRANTY; without even the implied warranty of
-//    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//    GNU General Public License for more details.
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 //
-//    You should have received a copy of the GNU General Public License
-//    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 package wsrooms
 
@@ -20,12 +20,11 @@ import (
 	"net/http"
 	"sync"
 	"time"
-    "github.com/chuckpreslar/emission"
+	"github.com/chuckpreslar/emission"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
-// The Conn type represents a single client.
 type Conn struct {
 	sync.Mutex
 	Cookie map[string]string
@@ -47,66 +46,60 @@ const (
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  4096,
 	WriteBufferSize: 4096,
-	CheckOrigin:     func(r *http.Request) bool { return true },
+	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
-var (
-	// Stores all Conn types by their uuid.
-	ConnManager = struct {
-		sync.Mutex
-		Conns map[string]*Conn
-	}{
-		Conns: make(map[string]*Conn),
-	}
-	// Emits received Messages with non-reserved event names.
-	Emitter = emission.NewEmitter()
-)
+var Emitter = emission.NewEmitter()
 
-// Handles incoming, error free messages.
-func HandleData(c *Conn, msg *Message) {
+func (c *Conn) getRooms() []string {
+	c.Lock()
+	defer c.Unlock()
+	rooms := make([]string, 0)
+	for name := range c.Rooms {
+		rooms = append(rooms, name)
+	}
+	return rooms
+}
+
+func (c *Conn) handleLeave(msg *Message) {
+	room, ok := Hub.GetRoom(msg.Room)
+	if !ok {
+		return
+	}
+	room.Lock()
+	defer room.Unlock()
+	delete(room.Members, c.ID)
+	if len(room.Members) == 0 {
+		room.Stop()
+	}
+}
+
+func (c *Conn) handleDirectMessage(msg *Message) {
+	room, rok := Hub.GetRoom(msg.Room)
+	if !rok {
+		return
+	}
+	dst, cok := Hub.GetConn(room.Members[msg.Dst])
+	if !cok {
+		return
+	}
+	dst.Send <- msg.Bytes()
+}
+
+func (c *Conn) HandleData(msg *Message) {
 	switch msg.Event {
 	case "join":
 		c.Join(msg.Room)
 	case "leave":
 		c.Leave(msg.Room)
-	case "joined":
+	case "joined", "left":
 		c.Emit(msg)
-	case "left":
-		c.Emit(msg)
-		RoomManager.Lock()
-		room, ok := RoomManager.Rooms[msg.Room]
-		RoomManager.Unlock()
-		if ok == false {
-			break
-		}
-		room.Lock()
-		delete(room.Members, c.ID)
-		members := len(room.Members)
-		room.Unlock()
-		if members == 0 {
-			room.Stop()
+		if msg.Event == "left" {
+			c.handleLeave(msg)
 		}
 	default:
 		if msg.Dst != "" {
-			RoomManager.Lock()
-			room, rok := RoomManager.Rooms[msg.Room]
-			RoomManager.Unlock()
-			if rok == false {
-				break
-			}
-			room.Lock()
-			id, mok := room.Members[msg.Dst]
-			room.Unlock()
-			if mok == false {
-				break
-			}
-			ConnManager.Lock()
-			dst, cok := ConnManager.Conns[id]
-			ConnManager.Unlock()
-			if cok == false {
-				break
-			}
-			dst.Send <- msg.Bytes()
+			c.handleDirectMessage(msg)
 		} else if Emitter.GetListenerCount(msg.Event) > 0 {
 			Emitter.Emit(msg.Event, c, msg)
 		} else {
@@ -115,22 +108,36 @@ func HandleData(c *Conn, msg *Message) {
 	}
 }
 
-func (c *Conn) readPump() {
-	defer func() {
-		c.Lock()
-		for name := range c.Rooms {
-			c.Unlock()
-			RoomManager.Lock()
-			room, ok := RoomManager.Rooms[name]
-			RoomManager.Unlock()
-			if ok == true {
-				room.Leave(c)
-			}
-			c.Lock()
+func (c *Conn) cleanup() {
+	defer c.Socket.Close()
+	rooms := c.getRooms()
+	for _, name := range rooms {
+		if room, ok := Hub.GetRoom(name); ok {
+			room.Leave(c)
 		}
-		c.Unlock()
-		c.Socket.Close()
-	}()
+	}
+	Hub.RemoveConn(c.ID)
+}
+
+func (c *Conn) handleError(err error) {
+	rooms := c.getRooms()
+	for _, name := range rooms {
+		room, ok := Hub.GetRoom(name)
+		if !ok {
+			continue
+		}
+		room.Emit(c, ConstructMessage(name, "left", "", c.ID, []byte(c.ID)))
+		room.Lock()
+		delete(room.Members, c.ID)
+		if len(room.Members) == 0 {
+			room.Stop()
+		}
+		room.Unlock()
+	}
+}
+
+func (c *Conn) readPump() {
+	defer c.cleanup()
 	c.Socket.SetReadLimit(maxMessageSize)
 	c.Socket.SetReadDeadline(time.Now().Add(pongWait))
 	c.Socket.SetPongHandler(func(string) error {
@@ -140,33 +147,13 @@ func (c *Conn) readPump() {
 	for {
 		_, data, err := c.Socket.ReadMessage()
 		if err != nil {
-			if _, wok := err.(*websocket.CloseError); wok == false {
+			if _, ok := err.(*websocket.CloseError); !ok {
 				break
 			}
-			c.Lock()
-			for name := range c.Rooms {
-				c.Unlock()
-				RoomManager.Lock()
-				room, rok := RoomManager.Rooms[name]
-				RoomManager.Unlock()
-				if rok == false {
-					c.Lock()
-					continue
-				}
-				room.Emit(c, ConstructMessage(name, "left", "", c.ID, []byte(c.ID)))
-				room.Lock()
-				delete(room.Members, c.ID)
-				members := len(room.Members)
-				room.Unlock()
-				if members == 0 {
-					room.Stop()
-				}
-				c.Lock()
-			}
-			c.Unlock()
+			c.handleError(err)
 			break
 		}
-		HandleData(c, BytesToMessage(data))
+		c.HandleData(BytesToMessage(data))
 	}
 }
 
@@ -184,7 +171,7 @@ func (c *Conn) writePump() {
 	for {
 		select {
 		case msg, ok := <-c.Send:
-			if ok == false {
+			if !ok {
 				c.write(websocket.CloseMessage, []byte{})
 				return
 			}
@@ -199,12 +186,9 @@ func (c *Conn) writePump() {
 	}
 }
 
-// Adds the Conn to a Room. If the Room does not exist, it is created.
 func (c *Conn) Join(name string) {
-	RoomManager.Lock()
-	room, ok := RoomManager.Rooms[name]
-	RoomManager.Unlock()
-	if ok == false {
+	room, ok := Hub.GetRoom(name)
+	if !ok {
 		room = NewRoom(name)
 	}
 	c.Lock()
@@ -213,18 +197,9 @@ func (c *Conn) Join(name string) {
 	room.Join(c)
 }
 
-// Removes the Conn from a Room.
 func (c *Conn) Leave(name string) {
-	RoomManager.Lock()
-	room, rok := RoomManager.Rooms[name]
-	RoomManager.Unlock()
-	if rok == false {
-		return
-	}
-	c.Lock()
-	_, cok := c.Rooms[name]
-	c.Unlock()
-	if cok == false {
+	room, rok := Hub.GetRoom(name)
+	if !rok {
 		return
 	}
 	c.Lock()
@@ -233,17 +208,13 @@ func (c *Conn) Leave(name string) {
 	room.Leave(c)
 }
 
-// Broadcasts a Message to all members of a Room.
 func (c *Conn) Emit(msg *Message) {
-	RoomManager.Lock()
-	room, ok := RoomManager.Rooms[msg.Room]
-	RoomManager.Unlock()
-	if ok == true {
+	room, ok := Hub.GetRoom(msg.Room)
+	if ok {
 		room.Emit(c, msg)
 	}
 }
 
-// Upgrades an HTTP connection and creates a new Conn type.
 func NewConnection(w http.ResponseWriter, r *http.Request, cr CookieReader) *Conn {
 	socket, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -262,13 +233,10 @@ func NewConnection(w http.ResponseWriter, r *http.Request, cr CookieReader) *Con
 	if cr != nil {
 		c.Cookie = cr(r)
 	}
-	ConnManager.Lock()
-	ConnManager.Conns[c.ID] = c
-	ConnManager.Unlock()
+    Hub.AddConn(c)
 	return c
 }
 
-// Calls NewConnection, starts the returned Conn's writer, joins the root room, and finally starts the Conn's reader.
 func SocketHandler(cr CookieReader) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "GET" {
