@@ -112,7 +112,7 @@ func (c *Conn) cleanup() {
 	defer c.Socket.Close()
 	rooms := c.getRooms()
 	for _, name := range rooms {
-		if room, ok := Hub.GetRoom(name); ok {
+		if room, exists := Hub.GetRoom(name); exists {
 			room.Leave(c)
 		}
 	}
@@ -233,7 +233,7 @@ func NewConnection(w http.ResponseWriter, r *http.Request, cr CookieReader) *Con
 	if cr != nil {
 		c.Cookie = cr(r)
 	}
-    Hub.AddConn(c)
+	Hub.AddConn(c)
 	return c
 }
 

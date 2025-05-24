@@ -1,187 +1,176 @@
-# 🕸️ wsrooms
+# WSRooms WebSocket Example
 
-**A lightweight, event-driven WebSocket room communication library for Go and JavaScript.**
+This project demonstrates a simple WebSocket-based application using **Go** for the backend and **JavaScript** for the frontend. It uses WebSockets to allow users to join rooms and send messages to each other in real-time.
 
-`wsrooms` enables structured, real-time messaging between clients using named rooms over WebSocket. This project includes both server (Go) and client (JavaScript) implementations using a shared custom binary message protocol.
+## Project Structure
 
----
-
-## 📦 Features
-
-- Room-based real-time messaging
-- Private/direct messages between clients
-- Custom extensible binary message protocol
-- Event emitter-based client API
-- Auto cleanup of empty rooms
-- Cross-platform: Go server, JS browser client
-
----
-
-## 🛠️ Installation
-
-### Go Server
-
-```bash
-go get github.com/joncody/wsrooms
+```
+project-directory/
+├── go/
+│   └── server.go        # Go WebSocket server code
+├── public/
+│   └── index.html       # HTML page for the front-end
+├── static/
+│   └── js/
+│       └── index.js     # WebSocket client-side JS
+└── go.mod               # Go module file (if applicable)
 ```
 
-Dependencies:
-```bash
-go get github.com/gorilla/websocket
-go get github.com/google/uuid
-go get github.com/chuckpreslar/emission
-```
+## Backend (Go WebSocket Server)
 
-### JavaScript Client
+### Setup
 
-Add `wsrooms.js` to your HTML:
+1. **Install Go**
+   Ensure that you have Go installed. You can download it from [https://golang.org/dl/](https://golang.org/dl/).
 
-```html
-<script src="path/to/gg.js"></script>
-<script src="path/to/wsrooms.js"></script>
-```
+2. **Install Dependencies**
+   The project uses the `wsrooms` Go package, which is a WebSocket library for managing rooms and broadcasting messages.
 
-You’ll also need [`gg.js`](https://github.com/joncody/gg) — a utility library for better ArrayBuffer handling and event emitting.
+   To install the necessary Go modules, run the following:
 
----
+   ```bash
+   go mod tidy
+   ```
 
-## 🚀 Usage Example
+3. **Running the Go Server**
+   To run the server, use the following command:
 
-### Go Server
+   ```bash
+   go run go/server.go
+   ```
+
+   This will start the server at `http://localhost:8080`.
+
+### How It Works
+
+- The Go server handles WebSocket connections via the `wsrooms` library, which is responsible for managing rooms and broadcasting messages to all clients connected to a room.
+- The `SocketHandler` in Go is set up to accept WebSocket connections on the `/ws` route.
+
+### Backend Code (`server.go`)
 
 ```go
 package main
 
 import (
-	"log"
+	"html/template"
 	"net/http"
+
 	"github.com/joncody/wsrooms"
 )
 
+var index = template.Must(template.ParseFiles("index.html"))
+
+func handler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", 405)
+		return
+	}
+	index.Execute(w, nil)
+}
+
+func staticHandler(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, r.URL.Path[1:])
+}
+
 func main() {
+	wsrooms.Emitter.On("hello", func(c *wsrooms.Conn, msg *wsrooms.Message) {
+		c.Emit(msg)
+	})
+
+	http.HandleFunc("/", handler)
+	http.HandleFunc("/static/", staticHandler)
 	http.HandleFunc("/ws", wsrooms.SocketHandler(nil))
-	log.Println("Server started on :8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+
+	http.ListenAndServe(":8080", nil)
 }
 ```
 
-### JavaScript Client
+## Frontend (JavaScript WebSocket Client)
 
-```html
-<script>
-    const root = wsrooms("ws://localhost:8080/ws");
+### Setup
 
-    root.on("open", function () {
-        console.log("Connected as:", root.id());
-        const chat = root.join("chat");
+1. **Directory Structure**
+   The client-side JavaScript code is located in the `/static/js/index.js` file.
 
-        chat.on("open", () => {
-            console.log("Joined chat room");
-            chat.send("message", "Hello everyone!");
-        });
+2. **Running the Frontend**
+   The frontend will automatically load the WebSocket client (`index.js`) in the `index.html` file, which will try to establish a WebSocket connection to the server at `ws://localhost:8080/ws`.
 
-        chat.on("message", (payload, from) => {
-            console.log(`Message from ${from}: ${new TextDecoder().decode(payload)}`);
-        });
+   To run the frontend, simply navigate to `http://localhost:8080/` in your browser.
 
-        chat.on("joined", (id) => {
-            console.log(`${id} joined`);
-        });
-
-        chat.on("left", (id) => {
-            console.log(`${id} left`);
-        });
-    });
-
-    root.on("close", () => {
-        console.log("Socket closed");
-    });
-</script>
-```
-
----
-
-## 📘 Protocol
-
-Messages are structured in binary format:
-
-| Field         | Type    | Description                  |
-|---------------|---------|------------------------------|
-| RoomLength    | uint32  | Length of room name          |
-| Room          | string  | Room name                    |
-| EventLength   | uint32  | Length of event name         |
-| Event         | string  | Event name                   |
-| DstLength     | uint32  | Length of destination ID     |
-| Dst           | string  | Destination client ID        |
-| SrcLength     | uint32  | Length of source ID          |
-| Src           | string  | Source client ID             |
-| PayloadLength | uint32  | Length of payload            |
-| Payload       | []byte  | Payload (string or binary)   |
-
----
-
-## 🧠 JavaScript API
-
-### `wsrooms(url: string): Room`
-
-Establishes a connection and returns the `root` room.
-
----
-
-### Room Object
-
-A room is created automatically when joined.
-
-#### Properties & Methods
-
-| Method / Prop     | Description |
-|-------------------|-------------|
-| `room.name`       | Room name |
-| `room.open()`     | Returns `true` if connection is active |
-| `room.id()`       | Returns the client's unique ID |
-| `room.members()`  | Returns array of member IDs |
-| `room.send(event, payload, dst)` | Sends an event (with optional binary/string payload) |
-| `room.join(name)` | Joins another room |
-| `room.leave()`    | Leaves this room |
-| `room.on(event, fn)` | Subscribes to a room event |
-| `room.clearListeners(exceptions?)` | Removes all listeners except the ones in `exceptions` |
-
-#### Built-in Events
-
-| Event     | Triggered When |
-|-----------|----------------|
-| `open`    | Successfully joined the room |
-| `joined`  | A user joined the room |
-| `left`    | A user left the room |
-| `close`   | Connection to the room was closed |
-
----
-
-## 📎 Example: Private Message
+### Frontend Code (`index.js`)
 
 ```javascript
-chat.send("message", "Hey!", "other-client-id");
+"use strict";
+
+import wsrooms from "./wsrooms.js";
+
+// Connect to the WebSocket server
+const socket = wsrooms("ws://localhost:8080/ws");
+
+// Listen for the "joined" event
+socket.on("joined", function (id) {
+    console.log(id + " joined");
+});
+
+// Listen for the "left" event
+socket.on("left", function (id) {
+    console.log(id + " left");
+});
 ```
 
----
+### HTML File (`index.html`)
 
-## 🧪 Testing
+```html
+<!DOCTYPE html>
+<html>
+    <head lang="en">
+        <meta charset="UTF-8">
+        <meta name="author" content="Jon Cody">
+        <meta name="viewport" content="width=device-width, height=device-height, user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1">
+        <title>WSRooms</title>
+    </head>
+    <body>
+        <script type="module" src="/static/js/index.js"></script>
+    </body>
+</html>
+```
 
-Use a tool like [WebSocket King](https://websocketking.com/) for manual testing, or use browser devtools console.
+## Installation and Running the App
 
-Ensure messages are encoded properly using `gg.betterview`.
+### 1. Clone the repository:
 
----
+```bash
+git clone <repository-url>
+cd <project-directory>
+```
 
-## 🧱 Built With
+### 2. Install Go dependencies:
 
-- Go
-- Gorilla WebSocket
-- emission (Go)
-- [gg.js](https://github.com/joncody/gg)
+Run the following to install the necessary Go dependencies:
 
----
+```bash
+go mod tidy
+```
 
-## 📜 License
+### 3. Start the Go WebSocket Server:
+
+Run the Go server with:
+
+```bash
+go run go/server.go
+```
+
+This will start the server at `http://localhost:8080`.
+
+### 4. Open the Frontend:
+
+Open `http://localhost:8080/` in your browser to access the frontend. The JavaScript WebSocket client will automatically attempt to connect to the WebSocket server.
+
+### 5. Interact with the App:
+
+- When a user joins or leaves a room, the WebSocket client in the browser will log the messages in the browser console.
+- The server uses the `wsrooms` package to manage connections and rooms and will broadcast events like `joined` and `left` to all connected clients.
+
+## License
 
 See the [LICENSE](./LICENSE) file for details.

@@ -21,7 +21,6 @@ import (
 	"encoding/binary"
 )
 
-// Message protocol followed by wsrooms servers and clients.
 type Message struct {
 	RoomLength    int    // room name length
 	Room          string // room name
@@ -35,13 +34,11 @@ type Message struct {
 	Payload       []byte // payload
 }
 
-// Message protocol used only with a room's Send channel.
 type RoomMessage struct {
 	Sender *Conn
 	Data   []byte
 }
 
-// Returns a Message type from bytes.
 func BytesToMessage(data []byte) *Message {
 	buf := bytes.NewBuffer(data)
 	msg := &Message{}
@@ -58,7 +55,6 @@ func BytesToMessage(data []byte) *Message {
 	return msg
 }
 
-// Returns bytes from a Message type.
 func (msg *Message) Bytes() []byte {
 	buf := bytes.NewBuffer([]byte{})
 	binary.Write(buf, binary.BigEndian, uint32(msg.RoomLength))
@@ -74,7 +70,6 @@ func (msg *Message) Bytes() []byte {
 	return buf.Bytes()
 }
 
-// Constructs and returns a new Message type.
 func ConstructMessage(room, event, dst, src string, payload []byte) *Message {
 	return &Message{
 		RoomLength:    len(room),
