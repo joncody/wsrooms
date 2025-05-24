@@ -1,12 +1,12 @@
 package wsrooms
 
 import (
-	"net/http"
-	"sync"
-	"time"
 	"github.com/chuckpreslar/emission"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"net/http"
+	"sync"
+	"time"
 )
 
 type Conn struct {
@@ -30,7 +30,7 @@ const (
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  4096,
 	WriteBufferSize: 4096,
-	CheckOrigin: func(r *http.Request) bool { return true },
+	CheckOrigin:     func(r *http.Request) bool { return true },
 }
 
 var Emitter = emission.NewEmitter()
@@ -46,20 +46,20 @@ func (c *Conn) getRooms() []string {
 }
 
 func (c *Conn) handleLeave(msg *Message) {
-    if room, exists := Hub.GetRoom(msg.Room); exists {
-        room.Lock()
-        defer room.Unlock()
-        delete(room.Members, c.ID)
-        if len(room.Members) == 0 {
-            room.Stop()
-        }
-    }
+	if room, exists := Hub.GetRoom(msg.Room); exists {
+		room.Lock()
+		defer room.Unlock()
+		delete(room.Members, c.ID)
+		if len(room.Members) == 0 {
+			room.Stop()
+		}
+	}
 }
 
 func (c *Conn) handleDirectMessage(msg *Message) {
-    if dst, exists := Hub.GetConn(msg.Dst); exists {
-        dst.Send <- msg.Bytes()
-    }
+	if dst, exists := Hub.GetConn(msg.Dst); exists {
+		dst.Send <- msg.Bytes()
+	}
 }
 
 func (c *Conn) HandleData(msg *Message) {
@@ -98,15 +98,15 @@ func (c *Conn) cleanup() {
 func (c *Conn) handleError(err error) {
 	rooms := c.getRooms()
 	for _, name := range rooms {
-        if room, exists := Hub.GetRoom(name); exists {
-            room.Emit(c, ConstructMessage(name, "left", "", c.ID, []byte(c.ID)))
-            room.Lock()
-            delete(room.Members, c.ID)
-            if len(room.Members) == 0 {
-                room.Stop()
-            }
-            room.Unlock()
-        }
+		if room, exists := Hub.GetRoom(name); exists {
+			room.Emit(c, ConstructMessage(name, "left", "", c.ID, []byte(c.ID)))
+			room.Lock()
+			delete(room.Members, c.ID)
+			if len(room.Members) == 0 {
+				room.Stop()
+			}
+			room.Unlock()
+		}
 	}
 }
 
@@ -172,19 +172,19 @@ func (c *Conn) Join(name string) {
 }
 
 func (c *Conn) Leave(name string) {
-    if room, exists := Hub.GetRoom(name); exists {
-        c.Lock()
-        delete(c.Rooms, name)
-        c.Unlock()
-        room.Leave(c)
+	if room, exists := Hub.GetRoom(name); exists {
+		c.Lock()
+		delete(c.Rooms, name)
+		c.Unlock()
+		room.Leave(c)
 
-    }
+	}
 }
 
 func (c *Conn) Emit(msg *Message) {
-    if room, ok := Hub.GetRoom(msg.Room); ok {
+	if room, ok := Hub.GetRoom(msg.Room); ok {
 		room.Emit(c, msg)
-    }
+	}
 }
 
 func NewConnection(w http.ResponseWriter, r *http.Request, cr CookieReader) *Conn {

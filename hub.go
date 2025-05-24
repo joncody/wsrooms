@@ -43,7 +43,6 @@ func (m *Manager) AddConn(conn *Conn) {
 	m.Conn.Conns[conn.ID] = conn
 }
 
-
 func (m *Manager) RemoveRoom(name string) {
 	m.Room.Lock()
 	defer m.Room.Unlock()
