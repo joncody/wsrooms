@@ -1,19 +1,3 @@
-// Title: room.go
-// Author: Jonanthan David Cody
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 package wsrooms
 
 import (
@@ -24,12 +8,12 @@ import (
 
 type Room struct {
 	sync.Mutex
-	Name      string
-	Members   map[string]string
-	stopchan  chan bool
-	joinchan  chan *Conn
-	leavechan chan *Conn
-	Send      chan *RoomMessage
+	Name       string
+	Members    map[string]struct{}
+	destroy    chan bool
+	register   chan *Conn
+	unregister chan *Conn
+	Send       chan *RoomMessage
 }
 
 func (r *Room) getMembers() []string {
@@ -46,7 +30,7 @@ func (r *Room) handleJoin(c *Conn) {
 	members := r.getMembers()
 	r.Lock()
 	defer r.Unlock()
-	r.Members[c.ID] = c.ID
+	r.Members[c.ID] = struct{}{}
 	payload, err := json.Marshal(members)
 	if err != nil {
 		log.Println(err)
@@ -58,12 +42,10 @@ func (r *Room) handleJoin(c *Conn) {
 func (r *Room) handleLeave(c *Conn) {
 	r.Lock()
 	defer r.Unlock()
-	id, ok := r.Members[c.ID]
-	if !ok {
-		return
-	}
-	delete(r.Members, id)
-	c.Send <- ConstructMessage(r.Name, "leave", "", id, []byte(c.ID)).Bytes()
+    if _, ok := r.Members[c.ID]; ok {
+        delete(r.Members, c.ID)
+        c.Send <- ConstructMessage(r.Name, "leave", "", c.ID, []byte(c.ID)).Bytes()
+    }
 }
 
 func (r *Room) broadcast(msg *RoomMessage) {
@@ -94,13 +76,13 @@ func (r *Room) cleanup() {
 func (r *Room) Start() {
 	for {
 		select {
-		case c := <-r.joinchan:
+		case c := <-r.register:
 			r.handleJoin(c)
-		case c := <-r.leavechan:
+		case c := <-r.unregister:
 			r.handleLeave(c)
 		case msg := <-r.Send:
 			r.broadcast(msg)
-		case <-r.stopchan:
+		case <-r.destroy:
 			r.cleanup()
 			return
 		}
@@ -108,15 +90,15 @@ func (r *Room) Start() {
 }
 
 func (r *Room) Stop() {
-	r.stopchan <- true
+	r.destroy <- true
 }
 
 func (r *Room) Join(c *Conn) {
-	r.joinchan <- c
+	r.register <- c
 }
 
 func (r *Room) Leave(c *Conn) {
-	r.leavechan <- c
+	r.unregister <- c
 }
 
 func (r *Room) Emit(c *Conn, msg *Message) {
@@ -126,10 +108,10 @@ func (r *Room) Emit(c *Conn, msg *Message) {
 func NewRoom(name string) *Room {
 	r := &Room{
 		Name:      name,
-		Members:   make(map[string]string),
-		stopchan:  make(chan bool, 1),
-		joinchan:  make(chan *Conn, 16),
-		leavechan: make(chan *Conn, 16),
+		Members:   make(map[string]struct{}),
+		destroy:  make(chan bool, 1),
+		register:  make(chan *Conn, 16),
+		unregister: make(chan *Conn, 16),
 		Send:      make(chan *RoomMessage, 64),
 	}
 	Hub.AddRoom(r)

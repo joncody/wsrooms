@@ -1,19 +1,3 @@
-// Title: conn.go
-// Author: Jon Cody
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 package wsrooms
 
 import (
@@ -31,7 +15,7 @@ type Conn struct {
 	Socket *websocket.Conn
 	ID     string
 	Send   chan []byte
-	Rooms  map[string]string
+	Rooms  map[string]struct{}
 }
 
 type CookieReader func(*http.Request) map[string]string
@@ -62,28 +46,20 @@ func (c *Conn) getRooms() []string {
 }
 
 func (c *Conn) handleLeave(msg *Message) {
-	room, ok := Hub.GetRoom(msg.Room)
-	if !ok {
-		return
-	}
-	room.Lock()
-	defer room.Unlock()
-	delete(room.Members, c.ID)
-	if len(room.Members) == 0 {
-		room.Stop()
-	}
+    if room, exists := Hub.GetRoom(msg.Room); exists {
+        room.Lock()
+        defer room.Unlock()
+        delete(room.Members, c.ID)
+        if len(room.Members) == 0 {
+            room.Stop()
+        }
+    }
 }
 
 func (c *Conn) handleDirectMessage(msg *Message) {
-	room, rok := Hub.GetRoom(msg.Room)
-	if !rok {
-		return
-	}
-	dst, cok := Hub.GetConn(room.Members[msg.Dst])
-	if !cok {
-		return
-	}
-	dst.Send <- msg.Bytes()
+    if dst, exists := Hub.GetConn(msg.Dst); exists {
+        dst.Send <- msg.Bytes()
+    }
 }
 
 func (c *Conn) HandleData(msg *Message) {
@@ -122,17 +98,15 @@ func (c *Conn) cleanup() {
 func (c *Conn) handleError(err error) {
 	rooms := c.getRooms()
 	for _, name := range rooms {
-		room, ok := Hub.GetRoom(name)
-		if !ok {
-			continue
-		}
-		room.Emit(c, ConstructMessage(name, "left", "", c.ID, []byte(c.ID)))
-		room.Lock()
-		delete(room.Members, c.ID)
-		if len(room.Members) == 0 {
-			room.Stop()
-		}
-		room.Unlock()
+        if room, exists := Hub.GetRoom(name); exists {
+            room.Emit(c, ConstructMessage(name, "left", "", c.ID, []byte(c.ID)))
+            room.Lock()
+            delete(room.Members, c.ID)
+            if len(room.Members) == 0 {
+                room.Stop()
+            }
+            room.Unlock()
+        }
 	}
 }
 
@@ -187,32 +161,30 @@ func (c *Conn) writePump() {
 }
 
 func (c *Conn) Join(name string) {
-	room, ok := Hub.GetRoom(name)
-	if !ok {
+	room, exists := Hub.GetRoom(name)
+	if !exists {
 		room = NewRoom(name)
 	}
 	c.Lock()
-	c.Rooms[name] = name
+	c.Rooms[name] = struct{}{}
 	c.Unlock()
 	room.Join(c)
 }
 
 func (c *Conn) Leave(name string) {
-	room, rok := Hub.GetRoom(name)
-	if !rok {
-		return
-	}
-	c.Lock()
-	delete(c.Rooms, name)
-	c.Unlock()
-	room.Leave(c)
+    if room, exists := Hub.GetRoom(name); exists {
+        c.Lock()
+        delete(c.Rooms, name)
+        c.Unlock()
+        room.Leave(c)
+
+    }
 }
 
 func (c *Conn) Emit(msg *Message) {
-	room, ok := Hub.GetRoom(msg.Room)
-	if ok {
+    if room, ok := Hub.GetRoom(msg.Room); ok {
 		room.Emit(c, msg)
-	}
+    }
 }
 
 func NewConnection(w http.ResponseWriter, r *http.Request, cr CookieReader) *Conn {
@@ -228,7 +200,7 @@ func NewConnection(w http.ResponseWriter, r *http.Request, cr CookieReader) *Con
 		Socket: socket,
 		ID:     id.String(),
 		Send:   make(chan []byte, 256),
-		Rooms:  make(map[string]string),
+		Rooms:  make(map[string]struct{}),
 	}
 	if cr != nil {
 		c.Cookie = cr(r)
