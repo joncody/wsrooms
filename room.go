@@ -29,8 +29,8 @@ func (r *Room) getMembers() []string {
 func (r *Room) handleJoin(c *Conn) {
 	members := r.getMembers()
 	r.Lock()
-	defer r.Unlock()
 	r.Members[c.ID] = struct{}{}
+    r.Unlock()
 	payload, err := json.Marshal(members)
 	if err != nil {
 		log.Println(err)
@@ -45,6 +45,9 @@ func (r *Room) handleLeave(c *Conn) {
     if _, ok := r.Members[c.ID]; ok {
         delete(r.Members, c.ID)
         c.Send <- ConstructMessage(r.Name, "leave", "", c.ID, []byte(c.ID)).Bytes()
+        if len(r.Members) == 0 {
+            r.Stop()
+        }
     }
 }
 

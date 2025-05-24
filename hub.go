@@ -17,15 +17,6 @@ type Manager struct {
 	Conn *ConnManager
 }
 
-var Hub = &Manager{
-	Room: &RoomManager{
-		Rooms: make(map[string]*Room),
-	},
-	Conn: &ConnManager{
-		Conns: make(map[string]*Conn),
-	},
-}
-
 func (m *Manager) GetRoom(name string) (*Room, bool) {
 	m.Room.Lock()
 	defer m.Room.Unlock()
@@ -83,4 +74,9 @@ func (m *Manager) Conns() map[string]*Conn {
 		conns[id] = conn
 	}
 	return conns
+}
+
+var Hub = &Manager{
+	Room: &RoomManager{Rooms: make(map[string]*Room)},
+	Conn: &ConnManager{Conns: make(map[string]*Conn)},
 }
