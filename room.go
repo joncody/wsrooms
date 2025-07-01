@@ -41,10 +41,10 @@ func (r *Room) handleJoin(c *Conn) {
 
 func (r *Room) handleLeave(c *Conn) {
 	r.Lock()
-    defer func() {
-        r.Unlock()
-        r.Stop()
-    }()
+	defer func() {
+		r.Unlock()
+		r.Stop()
+	}()
 	if _, ok := r.Members[c.ID]; ok {
 		delete(r.Members, c.ID)
 		c.Send <- ConstructMessage(r.Name, "leave", "", c.ID, []byte(c.ID)).Bytes()
