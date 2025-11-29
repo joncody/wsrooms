@@ -25,6 +25,119 @@ Number.isNaN = Number.isNaN || function (value) {
 
 const global = globalThis || window || this;
 
+const ease = Object.freeze({
+    linearTween: function (t, b, c, d) {
+        return c * t / d + b;
+    },
+    easeInQuad: function (t, b, c, d) {
+        t /= d;
+        return c * t * t + b;
+    },
+    easeOutQuad: function (t, b, c, d) {
+        t /= d;
+        return -c * t * (t - 2) + b;
+    },
+    easeInOutQuad: function (t, b, c, d) {
+        t /= d / 2;
+        if (t < 1) {
+            return c / 2 * t * t + b;
+        }
+        t -= 1;
+        return -c / 2 * (t * (t - 2) - 1) + b;
+    },
+    easeInCubic: function (t, b, c, d) {
+        t /= d;
+        return c * t * t * t + b;
+    },
+    easeOutCubic: function (t, b, c, d) {
+        t /= d;
+        t -= 1;
+        return c * (t * t * t + 1) + b;
+    },
+    easeInOutCubic: function (t, b, c, d) {
+        t /= d / 2;
+        if (t < 1) {
+            return c / 2 * t * t * t + b;
+        }
+        t -= 2;
+        return c / 2 * (t * t * t + 2) + b;
+    },
+    easeInQuart: function (t, b, c, d) {
+        t /= d;
+        return c * t * t * t * t + b;
+    },
+    easeOutQuart: function (t, b, c, d) {
+        t /= d;
+        t -= 1;
+        return -c * (t * t * t * t - 1) + b;
+    },
+    easeInOutQuart: function (t, b, c, d) {
+        t /= d / 2;
+        if (t < 1) {
+            return c / 2 * t * t * t * t + b;
+        }
+        t -= 2;
+        return -c / 2 * (t * t * t * t - 2) + b;
+    },
+    easeInQuint: function (t, b, c, d) {
+        t /= d;
+        return c * t * t * t * t * t + b;
+    },
+    easeOutQuint: function (t, b, c, d) {
+        t /= d;
+        t -= 1;
+        return c * (t * t * t * t * t + 1) + b;
+    },
+    easeInOutQuint: function (t, b, c, d) {
+        t /= d / 2;
+        if (t < 1) {
+            return c / 2 * t * t * t * t * t + b;
+        }
+        t -= 2;
+        return c / 2 * (t * t * t * t * t + 2) + b;
+    },
+    easeInSine: function (t, b, c, d) {
+        return -c * Math.cos(t / d * (Math.PI / 2)) + c + b;
+    },
+    easeOutSine: function (t, b, c, d) {
+        return c * Math.sin(t / d * (Math.PI / 2)) + b;
+    },
+    easeInOutSine: function (t, b, c, d) {
+        return -c / 2 * (Math.cos(Math.PI * t / d) - 1) + b;
+    },
+    easeInExpo: function (t, b, c, d) {
+        return c * Math.pow(2, 10 * (t / d - 1) ) + b;
+    },
+    easeOutExpo: function (t, b, c, d) {
+        return c * (-Math.pow(2, -10 * t / d) + 1) + b;
+    },
+    easeInOutExpo: function (t, b, c, d) {
+        t /= d / 2;
+        if (t < 1) {
+            return c / 2 * Math.pow(2, 10 * (t - 1)) + b;
+        }
+        t -= 1;
+        return c / 2 * (-Math.pow(2, -10 * t) + 2) + b;
+    },
+    easeInCirc: function (t, b, c, d) {
+        t /= d;
+        return -c * (Math.sqrt(1 - t * t) - 1) + b;
+    },
+    easeOutCirc: function (t, b, c, d) {
+        t /= d;
+        t -= 1;
+        return c * Math.sqrt(1 - t * t) + b;
+    },
+    easeInOutCirc: function (t, b, c, d) {
+        t /= d / 2;
+        if (t < 1) {
+            return -c / 2 * (Math.sqrt(1 - t * t) - 1) + b;
+        }
+        t -= 2;
+        return c / 2 * (Math.sqrt(1 - t * t) + 1) + b;
+    }
+});
+
 function typeOf(value) {
     let type = typeof value;
 
@@ -36,12 +149,10 @@ function typeOf(value) {
     return type;
 }
 
-// SHORTHAND
 function arrSlice(value, begin, end) {
     return Array.prototype.slice.call(value, begin, end);
 }
 
-// IS
 function isArray(value) {
     return typeOf(value) === "array";
 }
@@ -121,7 +232,6 @@ function isTypedArray(value) {
     return types.indexOf(type) > -1;
 }
 
-// TO
 function toArray(value) {
     let list;
 
@@ -277,7 +387,7 @@ function inherits(ctor, superCtor) {
     ctor.prototype = Object.create(superCtor.prototype, {
         constructor: {
             value: ctor,
-            enumberable: false,
+            enumerable: false,
             writable: true,
             configurable: true
         }
@@ -319,7 +429,6 @@ function uuid() {
     });
 }
 
-// GET
 function getPosition(node) {
     const pos = {
         x: 0,
@@ -348,7 +457,6 @@ function getStyle(node, pseudo) {
         : pseudo);
 }
 
-// TIMEOUT
 function setImmediate(executable) {
     const args = arrSlice(arguments, 1);
 
@@ -358,7 +466,6 @@ function setImmediate(executable) {
     return global.setTimeout(executable, 0, args);
 }
 
-// QUERY
 function getById(id, supplanter) {
     return document.getElementById(supplant(id, supplanter));
 }
@@ -375,7 +482,6 @@ function selectAll(selector, supplanter, node) {
         : document.querySelectorAll(supplant(selector, supplanter));
 }
 
-// SCROLL
 function scrollIntoView(node, easingExec) {
     const el = isGG(node)
         ? node.raw(0)
@@ -383,7 +489,7 @@ function scrollIntoView(node, easingExec) {
     const executable = !isFunction(easingExec)
         ? ease.easeInOutSine
         : easingExec
-    const relativeTo = document.body;
+    const relativeTo = document.scrollingElement || document.documentElement || document.body;
     let animation;
     const max = relativeTo.scrollHeight - global.innerHeight;
     let current = 0;
@@ -439,6 +545,7 @@ function scrollToTop(node, easingExec) {
 }
 
 export default Object.freeze({
+    ease,
     typeOf,
     arrSlice,
     isArray,

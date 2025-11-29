@@ -1,6 +1,5 @@
 "use strict";
 
-import ease from "./ease.js";
 import utils from "./utils.js";
 import emitter from "./emitter.js";
 import betterview from "./betterview.js";
@@ -970,7 +969,6 @@ gg.keyboardListener = keyboardListener;
 gg.mouseListener = mouseListener;
 gg.removeKeyboardListeners = removeKeyboardListeners;
 gg.removeMouseListeners = removeMouseListeners;
-gg.ease = ease;
 gg.utils = utils;
 gg.emitter = emitter;
 gg.betterview = betterview;

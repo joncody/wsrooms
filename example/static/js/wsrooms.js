@@ -190,7 +190,6 @@ export default function wsrooms(url) {
             src: data.getString(data.getUint32()),
             payload: data.getBytes(data.getUint32())
         };
-        console.log(packet);
 
         if (!rooms.hasOwnProperty(packet.room)) {
             return console.warn("Room " + packet.room + " does not exist.");
