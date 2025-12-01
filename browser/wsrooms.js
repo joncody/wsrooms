@@ -2,7 +2,7 @@
 
 import gg from "./gg.js";
 
-const global = globalThis || window || this;
+const global = typeof globalThis !== "undefined" ? globalThis : (typeof window !== "undefined" ? window : this);
 const rooms = {};
 const reserved = ["open", "close", "joined", "join", "leave", "left"];
 let socket;
