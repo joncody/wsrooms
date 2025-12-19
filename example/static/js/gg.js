@@ -5,16 +5,26 @@ import emitter from "./emitter.js";
 import betterview from "./betterview.js";
 import cdb from "./cdb.js";
 
-const global = globalThis || window || this;
+const global = (
+    globalThis !== "undefined"
+    ? globalThis
+    : (
+        window !== "undefined"
+        ? window
+        : this
+    )
+);
 
 const ggid = (function () {
     let id = 0;
     const maxint = Math.pow(2, 53) - 1;
 
     return function () {
-        id = id < maxint
+        id = (
+            id < maxint
             ? id + 1
-            : 1;
+            : 1
+        );
         return id;
     };
 }());
@@ -46,7 +56,9 @@ const taglist = [
     "colgroup",
     "dd",
     "del",
+    "details",
     "dfn",
+    "dialog",
     "div",
     "dl",
     "dt",
@@ -76,6 +88,7 @@ const taglist = [
     "legend",
     "li",
     "link",
+    "main",
     "map",
     "mark",
     "meta",
@@ -87,6 +100,8 @@ const taglist = [
     "option",
     "p",
     "param",
+    "path",
+    "picture",
     "pre",
     "progress",
     "q",
@@ -104,10 +119,13 @@ const taglist = [
     "strong",
     "style",
     "sub",
+    "summary",
     "sup",
+    "svg",
     "table",
     "tbody",
     "td",
+    "template",
     "textarea",
     "tfoot",
     "th",
@@ -119,8 +137,52 @@ const taglist = [
     "u",
     "ul",
     "var",
-    "video"
+    "video",
+    "wbr"
 ];
+
+function closure(executable, node, arg) {
+    return function (e) {
+        return executable.call(null, e, gg(node), arg);
+    };
+}
+
+function cloneNodeDeeper(node) {
+    let nodeid;
+    let cloneid;
+    let clone;
+
+    if (utils.isGG(node) && node.length() === 1) {
+        node = node.raw();
+    }
+    if (utils.isNode(node)) {
+        nodeid = global.parseInt(node.getAttribute("data-gg-id"), 10);
+        clone = node.cloneNode();
+        clone.textContent = node.textContent;
+        utils.each(node.children, function (child) {
+            clone.appendChild(cloneNodeDeeper(child));
+        });
+    }
+    if (!utils.isNumber(nodeid) || !listeners.hasOwnProperty(nodeid)) {
+        return clone;
+    }
+    cloneid = ggid();
+    clone.setAttribute("data-gg-id", cloneid);
+    listeners[cloneid] = {};
+    utils.each(listeners[nodeid], function (list, type) {
+        listeners[cloneid][type] = {};
+        utils.each(list, function (params, execid) {
+            const executable = params[0];
+            const bub = params[2];
+            const arg = params[3];
+            const closedExecutable = closure(executable, clone, arg);
+
+            listeners[cloneid][type][execid] = [executable, closedExecutable, bub, arg];
+            clone.addEventListener(type, closedExecutable, bub);
+        });
+    });
+    return clone;
+}
 
 // GG
 function gg(mselector, supplanter) {
@@ -128,49 +190,6 @@ function gg(mselector, supplanter) {
         gg: true
     };
     const store = [];
-
-    function closure(executable, node, arg) {
-        return function (e) {
-            return executable.call(null, e, gg(node), arg);
-        };
-    }
-
-    function cloneNodeDeeper(node) {
-        let nodeid;
-        let cloneid;
-        let clone;
-
-        if (utils.isGG(node) && node.length() === 1) {
-            node = node.raw();
-        }
-        if (utils.isNode(node)) {
-            nodeid = global.parseInt(node.getAttribute("data-gg-id"), 10);
-            clone = node.cloneNode();
-            clone.textContent = node.textContent;
-            utils.each(node.children, function (child) {
-                clone.appendChild(cloneNodeDeeper(child));
-            });
-        }
-        if (!utils.isNumber(nodeid) || !listeners.hasOwnProperty(nodeid)) {
-            return clone;
-        }
-        cloneid = ggid();
-        clone.setAttribute("data-gg-id", cloneid);
-        listeners[cloneid] = {};
-        utils.each(listeners[nodeid], function (list, type) {
-            listeners[cloneid][type] = {};
-            utils.each(list, function (params, execid) {
-                const executable = params[0];
-                const bub = params[2];
-                const arg = params[3];
-                const closedExecutable = closure(executable, clone, arg);
-
-                listeners[cloneid][type][execid] = [executable, closedExecutable, bub, arg];
-                clone.addEventListener(type, closedExecutable, bub);
-            });
-        });
-        return clone;
-    }
 
     if (utils.isGG(mselector)) {
         return mselector;
@@ -207,11 +226,15 @@ function gg(mselector, supplanter) {
                 const match = new RegExp("(?:^|\\s)" + substring + "(?:$|\\s)", "g");
 
                 if (!utils.isObject(node.className)) {
-                    node.className = match.test(node.className)
+                    node.className = (
+                        match.test(node.className)
                         ? node.className
-                        : node.className
+                        : (
+                            node.className
                             ? node.className + " " + substring
-                            : substring;
+                            : substring
+                        )
+                    );
                 } else {
                     node.classList.add(substring);
                 }
@@ -231,9 +254,11 @@ function gg(mselector, supplanter) {
                 if (!utils.isNode(sibling)) {
                     return;
                 }
-                node.parentNode.insertBefore(willcopy
+                node.parentNode.insertBefore((
+                    willcopy
                     ? cloneNodeDeeper(sibling)
-                    : sibling, node.nextSibling);
+                    : sibling
+                ), node.nextSibling);
             });
         });
         return gobject;
@@ -250,9 +275,11 @@ function gg(mselector, supplanter) {
                 if (!utils.isNode(child)) {
                     return;
                 }
-                node.appendChild(willcopy
+                node.appendChild(
+                    willcopy
                     ? cloneNodeDeeper(child)
-                    : child);
+                    : child
+                );
             });
         });
         return gobject;
@@ -269,9 +296,11 @@ function gg(mselector, supplanter) {
                 if (!utils.isNode(parent)) {
                     return;
                 }
-                parent.appendChild(willcopy
+                parent.appendChild(
+                    willcopy
                     ? cloneNodeDeeper(node)
-                    : node);
+                    : node
+                );
             });
         });
         return gobject;
@@ -295,19 +324,25 @@ function gg(mselector, supplanter) {
             utils.each(store, function (node) {
                 values.push(node[attrname]);
             });
-            values = values.length === 0
+            values = (
+                values.length === 0
                 ? null
-                : values.length === 1
+                : (
+                    values.length === 1
                     ? values[0]
-                    : values;
+                    : values
+                )
+            );
         } else if (attrname) {
             utils.each(store, function (node) {
                 node[attrname] = value;
             });
         }
-        return utils.isUndefined(values)
+        return (
+            utils.isUndefined(values)
             ? gobject
-            : values;
+            : values
+        );
     };
 
     gobject.before = function (value) {
@@ -321,9 +356,11 @@ function gg(mselector, supplanter) {
                 if (!utils.isNode(sibling)) {
                     return;
                 }
-                node.parentNode.insertBefore(willcopy
+                node.parentNode.insertBefore((
+                    willcopy
                     ? cloneNodeDeeper(sibling)
-                    : sibling, node);
+                    : sibling
+                ), node);
             });
         });
         return gobject;
@@ -345,48 +382,64 @@ function gg(mselector, supplanter) {
             utils.each(store, function (node) {
                 values.push(node.className);
             });
-            values = values.length === 0
+            values = (
+                values.length === 0
                 ? null
-                : values.length === 1
+                : (
+                    values.length === 1
                     ? values[0]
-                    : values;
+                    : values
+                )
+            );
         } else if (utils.isString(value)) {
             utils.each(store, function (node) {
                 node.className = value.trim();
             });
         }
-        return utils.isUndefined(value)
+        return (
+            utils.isUndefined(value)
             ? values
-            : gobject;
+            : gobject
+        );
     };
 
     gobject.clone = function (deep, deeper) {
         const nodes = [];
 
-        deep = utils.isBoolean(deep)
+        deep = (
+            utils.isBoolean(deep)
             ? deep
-            : false;
-        deeper = utils.isBoolean(deeper)
+            : false
+        );
+        deeper = (
+            utils.isBoolean(deeper)
             ? deeper
-            : false;
+            : false
+        );
         utils.each(store, function (node) {
-            nodes.push(deeper
+            nodes.push(
+                deeper
                 ? cloneNodeDeeper(node)
-                : node.cloneNode(deep));
+                : node.cloneNode(deep)
+            );
         });
         return gg(nodes);
     };
 
     gobject.create = function (tag) {
-        return utils.inArray(taglist, tag)
+        return (
+            utils.inArray(taglist, tag)
             ? gg(document.createElement(tag)).appendTo(gobject)
-            : gobject;
+            : gobject
+        );
     };
 
     gobject.data = function (name, value) {
-        const dataname = (utils.isString(name) && (name.length < 4 || name.slice(0, 4) !== "data"))
+        const dataname = (
+            (utils.isString(name) && (name.length < 4 || name.slice(0, 4) !== "data"))
             ? utils.toHyphenated("data-" + name)
-            : utils.toHyphenated(name);
+            : utils.toHyphenated(name)
+        );
         let values;
 
         if (utils.isObject(name)) {
@@ -403,19 +456,25 @@ function gg(mselector, supplanter) {
             utils.each(store, function (node) {
                 values.push(node.getAttribute(dataname));
             });
-            values = values.length === 0
+            values = (
+                values.length === 0
                 ? null
-                : values.length === 1
+                : (
+                    values.length === 1
                     ? values[0]
-                    : values;
+                    : values
+                )
+            );
         } else if (dataname) {
             utils.each(store, function (node) {
                 node.setAttribute(dataname, value);
             });
         }
-        return utils.isUndefined(values)
+        return (
+            utils.isUndefined(values)
             ? gobject
-            : values;
+            : values
+        );
     };
 
     gobject.each = function (executable) {
@@ -454,11 +513,15 @@ function gg(mselector, supplanter) {
                 }
             }));
         });
-        return values.length === 0
+        return (
+            values.length === 0
             ? null
-            : values.length === 1
+            : (
+                values.length === 1
                 ? values[0]
-                : values;
+                : values
+            )
+        );
     };
 
     gobject.html = function (value) {
@@ -468,19 +531,25 @@ function gg(mselector, supplanter) {
             utils.each(store, function (node) {
                 values.push(node.innerHTML);
             });
-            values = values.length === 0
+            values = (
+                values.length === 0
                 ? null
-                : values.length === 1
+                : (
+                    values.length === 1
                     ? values[0]
-                    : values;
+                    : values
+                )
+            );
         } else if (utils.isString(value) || utils.isNumber(value)) {
             utils.each(store, function (node) {
                 node.innerHTML = value;
             });
         }
-        return utils.isUndefined(value)
+        return (
+            utils.isUndefined(value)
             ? values
-            : gobject;
+            : gobject
+        );
     };
 
     gobject.insert = (function () {
@@ -508,9 +577,11 @@ function gg(mselector, supplanter) {
         if (!utils.isString(type)) {
             return gobject;
         }
-        bub = utils.isBoolean(bub)
+        bub = (
+            utils.isBoolean(bub)
             ? bub
-            : false;
+            : false
+        );
         utils.each(store, function (node) {
             const nodeid = global.parseInt(node.getAttribute("data-gg-id"), 10);
             const execid = utils.isFunction(executable) && executable.ggid;
@@ -519,13 +590,19 @@ function gg(mselector, supplanter) {
                 return gobject;
             }
             if (utils.isUndefined(executable)) {
-                utils.each(listeners[nodeid][type], function (params, execid, list) {
+                utils.each(listeners[nodeid][type], function (params) {
                     node.removeEventListener(type, params[1], bub);
                 });
                 delete listeners[nodeid][type];
             } else if (utils.isNumber(execid) && listeners[nodeid][type].hasOwnProperty(execid)) {
                 node.removeEventListener(type, listeners[nodeid][type][execid][1], bub);
                 delete listeners[nodeid][type][execid];
+                if (Object.keys(listeners[nodeid][type]).length === 0) {
+                    delete listeners[nodeid][type];
+                }
+            }
+            if (Object.keys(listeners[nodeid]).length === 0) {
+                delete listeners[nodeid];
             }
         });
         return gobject;
@@ -538,17 +615,23 @@ function gg(mselector, supplanter) {
         if (!utils.isString(type) || !utils.isFunction(executable)) {
             return gobject;
         }
-        bub = utils.isBoolean(bub)
+        bub = (
+            utils.isBoolean(bub)
             ? bub
-            : false;
-        execid = utils.isNumber(executable.ggid)
+            : false
+        );
+        execid = (
+            utils.isNumber(executable.ggid)
             ? executable.ggid
-            : ggid();
+            : ggid()
+        );
         executable.ggid = execid;
         utils.each(store, function (node) {
-            const nodeid = !utils.isNumber(global.parseInt(node.getAttribute("data-gg-id"), 10))
+            const nodeid = (
+                !utils.isNumber(global.parseInt(node.getAttribute("data-gg-id"), 10))
                 ? ggid()
-                : global.parseInt(node.getAttribute("data-gg-id"), 10);
+                : global.parseInt(node.getAttribute("data-gg-id"), 10)
+            );
 
             node.setAttribute("data-gg-id", nodeid);
             if (!listeners.hasOwnProperty(nodeid)) {
@@ -577,9 +660,11 @@ function gg(mselector, supplanter) {
         if (!utils.isString(type) || !utils.isFunction(executable)) {
             return gobject;
         }
-        bub = utils.isBoolean(bub)
+        bub = (
+            utils.isBoolean(bub)
             ? bub
-            : false;
+            : false
+        );
         utils.each(store, function (node) {
             node.addEventListener(type, handler(node, arg), bub);
         });
@@ -606,9 +691,11 @@ function gg(mselector, supplanter) {
                 if (!utils.isNode(child)) {
                     return;
                 }
-                node.insertBefore(willcopy
+                node.insertBefore((
+                    willcopy
                     ? cloneNodeDeeper(child)
-                    : child, node.firstChild);
+                    : child
+                ), node.firstChild);
             });
         });
         return gobject;
@@ -625,9 +712,11 @@ function gg(mselector, supplanter) {
                 if (!utils.isNode(parent)) {
                     return;
                 }
-                parent.insertBefore(willcopy
+                parent.insertBefore((
+                    willcopy
                     ? cloneNodeDeeper(node)
-                    : node, parent.firstChild);
+                    : node
+                ), parent.firstChild);
             });
         });
         return gobject;
@@ -651,19 +740,25 @@ function gg(mselector, supplanter) {
             utils.each(store, function (node) {
                 values.push(node.style[propname] || global.getComputedStyle(node, null).getPropertyValue(propname));
             });
-            values = values.length === 0
+            values = (
+                values.length === 0
                 ? null
-                : values.length === 1
+                : (
+                    values.length === 1
                     ? values[0]
-                    : values;
+                    : values
+                )
+            );
         } else if (propname) {
             utils.each(store, function (node) {
                 node.style[propname] = value;
             });
         }
-        return utils.isUndefined(values)
+        return (
+            utils.isUndefined(values)
             ? gobject
-            : values;
+            : values
+        );
     };
     gobject.css = gobject.prop;
     gobject.style = gobject.prop;
@@ -672,14 +767,20 @@ function gg(mselector, supplanter) {
         if (utils.isNumber(index) && index >= 0 && index < store.length) {
             return store[index];
         }
-        return store.length === 1
+        return (
+            store.length === 1
             ? store[0]
-            : store;
+            : store
+        );
     };
 
     gobject.remove = function (value) {
         if (utils.isUndefined(value)) {
             utils.each(store, function (node) {
+                const id = node.getAttribute("data-gg-id");
+                if (id && listeners.hasOwnProperty(id)) {
+                    delete listeners[id];
+                }
                 if (node.parentNode) {
                     node.parentNode.removeChild(node);
                 }
@@ -689,6 +790,10 @@ function gg(mselector, supplanter) {
                 utils.each(value, function (child) {
                     if (!utils.isNode(child) || !node.contains(child)) {
                         return;
+                    }
+                    const id = child.getAttribute("data-gg-id");
+                    if (id && listeners.hasOwnProperty(id)) {
+                        delete listeners[id];
                     }
                     if (child.parentNode) {
                         node.removeChild(child);
@@ -703,7 +808,7 @@ function gg(mselector, supplanter) {
         const attrname = utils.isString(name) && utils.toCamelCase(name);
 
         if (utils.isObject(name)) {
-            utils.each(name, function (value, key) {
+            utils.each(name, function (ignore, key) {
                 gobject.remAttr(key);
             });
         } else if (utils.isArray(name)) {
@@ -737,12 +842,14 @@ function gg(mselector, supplanter) {
     };
 
     gobject.remData = function (name) {
-        const dataname = (utils.isString(name) && (name.length < 4 || name.slice(0, 4) !== "data"))
+        const dataname = (
+            (utils.isString(name) && (name.length < 4 || name.slice(0, 4) !== "data"))
             ? utils.toHyphenated("data-" + name)
-            : utils.toHyphenated(name);
+            : utils.toHyphenated(name)
+        );
 
         if (utils.isObject(name)) {
-            utils.each(name, function (value, key) {
+            utils.each(name, function (ignore, key) {
                 gobject.remData(key);
             });
         } else if (utils.isArray(name)) {
@@ -768,7 +875,7 @@ function gg(mselector, supplanter) {
         const propname = utils.isString(name) && utils.toCamelCase(name);
 
         if (utils.isObject(name)) {
-            utils.each(name, function (value, key) {
+            utils.each(name, function (ignore, key) {
                 gobject.remProp(key);
             });
         } else if (utils.isArray(name)) {
@@ -824,19 +931,25 @@ function gg(mselector, supplanter) {
             utils.each(store, function (node) {
                 values.push(node.textContent);
             });
-            values = values.length === 0
+            values = (
+                values.length === 0
                 ? null
-                : values.length === 1
+                : (
+                    values.length === 1
                     ? values[0]
-                    : values;
+                    : values
+                )
+            );
         } else if (utils.isString(value) || utils.isNumber(value)) {
             utils.each(store, function (node) {
                 node.textContent = value;
             });
         }
-        return utils.isUndefined(value)
+        return (
+            utils.isUndefined(value)
             ? values
-            : gobject;
+            : gobject
+        );
     };
 
     gobject.togClass = function (value) {
@@ -848,11 +961,15 @@ function gg(mselector, supplanter) {
                 const match = new RegExp("(?:^|\\s)" + substring + "(?:$|\\s)", "g");
 
                 if (!utils.isObject(node.className)) {
-                    node.className = match.test(node.className)
+                    node.className = (
+                        match.test(node.className)
                         ? node.className.replace(match, " ").trim()
-                        : node.className
+                        : (
+                            node.className
                             ? node.className + " " + substring
-                            : substring;
+                            : substring
+                        )
+                    );
                 } else {
                     node.classList.toggle(substring);
                 }
@@ -866,9 +983,11 @@ function gg(mselector, supplanter) {
 
 // CREATE
 function create(tag) {
-    return utils.inArray(taglist, tag)
+    return (
+        utils.inArray(taglist, tag)
         ? gg(document.createElement(tag))
-        : null;
+        : null
+    );
 }
 
 // DEVICES
@@ -899,9 +1018,11 @@ keyboardListener = (function () {
 
         options = utils.extend({}, options);
         utils.each(options, function (handler, key) {
-            const keycode = utils.isString(key) && common.hasOwnProperty(key)
+            const keycode = (
+                (utils.isString(key) && common.hasOwnProperty(key))
                 ? common[key]
-                : global.parseInt(key, 10);
+                : global.parseInt(key, 10)
+            );
 
             if (utils.isFunction(handler) && utils.isNumber(keycode)) {
                 handlers[keycode] = handler;
@@ -938,9 +1059,11 @@ mouseListener = (function () {
 
         options = utils.extend({}, options);
         utils.each(options, function (handler, button) {
-            const buttoncode = utils.isString(button) && common.hasOwnProperty(button)
+            const buttoncode = (
+                (utils.isString(button) && common.hasOwnProperty(button))
                 ? common[button]
-                : global.parseInt(button, 10);
+                : global.parseInt(button, 10)
+            );
 
             if (utils.isFunction(handler) && utils.isNumber(buttoncode)) {
                 handlers[buttoncode] = handler;

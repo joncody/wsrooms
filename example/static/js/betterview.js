@@ -5,33 +5,34 @@ function isGG(val) {
 }
 
 function toCodesFromString(val) {
-    const len = val.length;
-    const codes = new Uint8Array(len);
-    for (let i = 0; i < len; i += 1) {
-        codes[i] = val.charCodeAt(i);
-    }
-    return codes;
+    return Uint8Array.from(val, (c) => c.charCodeAt(0));
 }
 
 function toStringFromCodes(val) {
-    return String.fromCharCode.apply(null, val);
+    return Array.from(val, (b) => String.fromCharCode(b)).join("");
 }
 
 function toUint8(val) {
-    if (val instanceof Uint8Array) {
+    const type = Object.prototype.toString.call(val).slice(8, -1).toLowerCase();
+
+    if (type === "uint8array") {
         return val;
     }
     if (isGG(val)) {
-        const raw = val.length() === 1 ? [val.raw()] : val.raw();
+        const raw = (
+            (val.length() === 1)
+            ? [val.raw()]
+            : val.raw()
+        );
         return new Uint8Array(raw);
     }
     if (typeof val === "string") {
         return toCodesFromString(val);
     }
-    if (val instanceof ArrayBuffer) {
+    if (type === "arraybuffer") {
         return new Uint8Array(val);
     }
-    if (Array.isArray(val) || (val && val.buffer instanceof ArrayBuffer)) {
+    if (Array.isArray(val) || (val && Object.prototype.toString.call(val.buffer).slice(8, -1).toLowerCase() === "arraybuffer")) {
         return new Uint8Array(val);
     }
     return new Uint8Array([val]);
@@ -41,25 +42,33 @@ function toBuffer(val) {
     return toUint8(val).buffer;
 }
 
-export default function betterview(value, offset, length) {
+const betterview = function (value, offset, length) {
     const numbersandbytes = {
-        "Int8": 1, "Uint8": 1,
-        "Int16": 2, "Uint16": 2,
-        "Int32": 4, "Uint32": 4,
-        "Float32": 4, "Float64": 8
+        "Int8": 1,
+        "Uint8": 1,
+        "Int16": 2,
+        "Uint16": 2,
+        "Int32": 4,
+        "Uint32": 4,
+        "Float32": 4,
+        "Float64": 8
     };
     const better = {};
     const store = {};
     store.buffer = toBuffer(value); // Initialize buffer and view
     const bufLen = store.buffer.byteLength;
     const viewOffset = offset || 0;
-    const viewLength = length === undefined ? (bufLen - viewOffset) : length;
+    const viewLength = (
+        length === undefined
+        ? (bufLen - viewOffset)
+        : length
+    );
     store.view = new DataView(store.buffer, viewOffset, viewLength);
     store.offset = 0; // The internal cursor relative to the View
 
-    // --------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
     // Helpers
-    // --------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
 
     function checkBounds(relativeOffset, byteSize) {
         if (typeof relativeOffset !== "number") {
@@ -83,9 +92,9 @@ export default function betterview(value, offset, length) {
         return store.view.byteOffset + relativeOffset;
     }
 
-    // --------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
     // Cursor Management
-    // --------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
 
     function rewind() {
         store.offset = 0;
@@ -112,23 +121,33 @@ export default function betterview(value, offset, length) {
         return better;
     }
 
-    // --------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
     // Buffer / Byte Operations
-    // --------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
 
     function slice(start, end) {
         const viewStart = store.view.byteOffset;
         const absStart = viewStart + (start || 0);
-        const absEnd = (end === undefined) ? (viewStart + store.view.byteLength) : (viewStart + end);
+        const absEnd = (
+            (end === undefined)
+            ? (viewStart + store.view.byteLength)
+            : (viewStart + end)
+        );
         return store.view.buffer.slice(absStart, absEnd);
     }
 
     function getBytes(len, activeOffset) {
         const useCursor = (activeOffset === undefined);
-        const currentOffset = useCursor ? store.offset : activeOffset;
-        const activeLen = (len === undefined)
+        const currentOffset = (
+            useCursor
+            ? store.offset
+            : activeOffset
+        );
+        const activeLen = (
+            (len === undefined)
             ? store.view.byteLength - currentOffset
-            : len;
+            : len
+        );
         checkBounds(currentOffset, activeLen);
         if (useCursor) {
             store.offset += activeLen;
@@ -138,7 +157,11 @@ export default function betterview(value, offset, length) {
     }
 
     function setBytes(activeOffset, val) {
-        const currentOffset = (activeOffset === undefined) ? store.offset : activeOffset;
+        const currentOffset = (
+            (activeOffset === undefined)
+            ? store.offset
+            : activeOffset
+        );
         const bytes = toUint8(val);
         const len = bytes.byteLength || bytes.length || 0;
         checkBounds(currentOffset, len);
@@ -157,9 +180,9 @@ export default function betterview(value, offset, length) {
         return better;
     }
 
-    // --------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
     // String Operations
-    // --------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
 
     function getString(len, activeOffset) {
         return toStringFromCodes(getBytes(len, activeOffset));
@@ -185,9 +208,9 @@ export default function betterview(value, offset, length) {
         return writeString(character);
     }
 
-    // --------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
     // Numeric Operations (Factories)
-    // --------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
 
     function getNumber(type, byteSize) {
         return function (activeOffset, littleEndian) {
@@ -196,7 +219,11 @@ export default function betterview(value, offset, length) {
                 activeOffset = undefined;
             }
             const useCursor = (activeOffset === undefined);
-            const currentOffset = useCursor ? store.offset : activeOffset;
+            const currentOffset = (
+                useCursor
+                ? store.offset
+                : activeOffset
+            );
             checkBounds(currentOffset, byteSize);
             const val = store.view["get" + type](currentOffset, littleEndian);
             if (useCursor) {
@@ -208,7 +235,11 @@ export default function betterview(value, offset, length) {
 
     function setNumber(type, byteSize) {
         return function (activeOffset, val, littleEndian) {
-            const currentOffset = (activeOffset === undefined) ? store.offset : activeOffset;
+            const currentOffset = (
+                (activeOffset === undefined)
+                ? store.offset
+                : activeOffset
+            );
             checkBounds(currentOffset, byteSize);
             store.view["set" + type](currentOffset, val, littleEndian);
             return better;
@@ -224,9 +255,9 @@ export default function betterview(value, offset, length) {
         };
     }
 
-    // --------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
     // Build Interface
-    // --------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
 
     Object.keys(numbersandbytes).forEach(function (type) {
         const bytes = numbersandbytes[type];
@@ -275,4 +306,6 @@ export default function betterview(value, offset, length) {
     });
 
     return Object.freeze(better);
-}
+};
+
+export default Object.freeze(betterview);

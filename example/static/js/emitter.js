@@ -1,9 +1,11 @@
 "use strict";
 
-export default function emitter(value) {
-    const em = (value && typeof value === "object")
+const emitter = function (value) {
+    const em = (
+        (value && typeof value === "object")
         ? value
-        : {};
+        : {}
+    );
     em.emitter = true;
     em.events = {};
 
@@ -12,9 +14,11 @@ export default function emitter(value) {
 
         if (typeof listener === "function") {
             if (em.events.newListener) {
-                em.emit("newListener", type, typeof listener.listener === "function"
+                em.emit("newListener", type, (
+                    typeof listener.listener === "function"
                     ? listener.listener
-                    : listener);
+                    : listener
+                ));
             }
             if (!list) {
                 em.events[type] = [listener];
@@ -93,7 +97,7 @@ export default function emitter(value) {
     };
 
     em.listeners = function (type) {
-        const list = [];
+        let list = [];
 
         if (typeof type === "string" && em.events[type]) {
             list = em.events[type];
@@ -105,13 +109,11 @@ export default function emitter(value) {
         return list;
     };
 
-    em.emit = function (type) {
+    em.emit = function (type, ...args) {
         const list = em.events[type];
         let emitted = false;
-        let args;
 
         if (list) {
-            args = Array.prototype.slice.call(arguments, 1);
             list.forEach(function (value) {
                 value.apply(em, args);
             });
@@ -121,4 +123,6 @@ export default function emitter(value) {
     };
 
     return em;
-}
+};
+
+export default Object.freeze(emitter);

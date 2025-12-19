@@ -2,7 +2,6 @@
 
 import gg from "./gg.js";
 
-const global = globalThis || window || this;
 const rooms = {};
 const reserved = ["open", "close", "joined", "join", "leave", "left"];
 let socket;
@@ -21,12 +20,12 @@ function buildMessage(room, event, dst, src, payload) {
         src = "";
     }
     payloadlen = payload.byteLength || payload.length || 0;
-    data = gg.betterview(room.length + event.length + dst.length + src.length + payloadlen + 20)
-        .writeUint32(room.length).writeString(room)
-        .writeUint32(event.length).writeString(event)
-        .writeUint32(dst.length).writeString(dst)
-        .writeUint32(src.length).writeString(src)
-        .writeUint32(payloadlen);
+    data = gg.betterview(room.length + event.length + dst.length + src.length + payloadlen + 20);
+    data.writeUint32(room.length).writeString(room);
+    data.writeUint32(event.length).writeString(event);
+    data.writeUint32(dst.length).writeString(dst);
+    data.writeUint32(src.length).writeString(src);
+    data.writeUint32(payloadlen);
     if (typeof payload === "string") {
         data.writeString(payload);
     } else {
@@ -42,7 +41,6 @@ function getRoom(name) {
         id: "",
         members: []
     };
-    let initdata;
 
     if (typeof name !== "string") {
         return console.warn("Room name must be a string");
@@ -88,9 +86,11 @@ function getRoom(name) {
         if (roomname === "root") {
             return console.warn("Root room is always joined.");
         }
-        return rooms.hasOwnProperty(roomname)
+        return (
+            rooms.hasOwnProperty(roomname)
             ? rooms[roomname]
-            : getRoom(roomname);
+            : getRoom(roomname)
+        );
     };
 
     room.leave = function () {
@@ -102,7 +102,6 @@ function getRoom(name) {
 
     room.parse = function (packet) {
         let index;
-        let data;
 
         switch (packet.event) {
         case "join":
@@ -110,7 +109,7 @@ function getRoom(name) {
             store.members = JSON.parse(gg.utils.toStringFromCodes(packet.payload));
             store.open = true;
             room.emit("open");
-            socket.send(buildMessage(name, "joined", "", store.id, store.id))
+            socket.send(buildMessage(name, "joined", "", store.id, store.id));
             break;
         case "joined":
             packet.payload = gg.utils.toStringFromCodes(packet.payload);
@@ -172,7 +171,7 @@ function getRoom(name) {
     return Object.freeze(room);
 }
 
-export default function wsrooms(url) {
+const wsrooms = function (url) {
     const root = getRoom("root");
 
     if (typeof url !== "string") {
@@ -208,4 +207,6 @@ export default function wsrooms(url) {
     };
 
     return root;
-}
+};
+
+export default Object.freeze(wsrooms);

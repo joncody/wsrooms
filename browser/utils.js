@@ -1,44 +1,29 @@
 "use strict";
 
-if (ArrayBuffer.prototype.slice === undefined) {
-    ArrayBuffer.prototype.slice = function (start, end) {
-        let that = new Uint8Array(this);
-        let result;
-        let resultarray;
-        let i;
-
-        if (end === undefined) {
-            end = that.length;
-        }
-        result = new ArrayBuffer(end - start);
-        resultarray = new Uint8Array(result);
-        for (i = 0; i < resultarray.length; i += 1) {
-            resultarray[i] = that[i + start];
-        }
-        return result;
-    };
-}
-
-Number.isNaN = Number.isNaN || function (value) {
-    return value !== value;
-};
-
-const global = globalThis || window || this;
+const global = (
+    globalThis !== "undefined"
+    ? globalThis
+    : (
+        window !== "undefined"
+        ? window
+        : this
+    )
+);
 
 const ease = Object.freeze({
     linearTween: function (t, b, c, d) {
         return c * t / d + b;
     },
     easeInQuad: function (t, b, c, d) {
-        t /= d;
+        t = t / d;
         return c * t * t + b;
     },
     easeOutQuad: function (t, b, c, d) {
-        t /= d;
+        t = t / d;
         return -c * t * (t - 2) + b;
     },
     easeInOutQuad: function (t, b, c, d) {
-        t /= d / 2;
+        t = t / (d / 2);
         if (t < 1) {
             return c / 2 * t * t + b;
         }
@@ -46,16 +31,16 @@ const ease = Object.freeze({
         return -c / 2 * (t * (t - 2) - 1) + b;
     },
     easeInCubic: function (t, b, c, d) {
-        t /= d;
+        t = t / d;
         return c * t * t * t + b;
     },
     easeOutCubic: function (t, b, c, d) {
-        t /= d;
+        t = t / d;
         t -= 1;
         return c * (t * t * t + 1) + b;
     },
     easeInOutCubic: function (t, b, c, d) {
-        t /= d / 2;
+        t = t / (d / 2);
         if (t < 1) {
             return c / 2 * t * t * t + b;
         }
@@ -63,16 +48,16 @@ const ease = Object.freeze({
         return c / 2 * (t * t * t + 2) + b;
     },
     easeInQuart: function (t, b, c, d) {
-        t /= d;
+        t = t / d;
         return c * t * t * t * t + b;
     },
     easeOutQuart: function (t, b, c, d) {
-        t /= d;
+        t = t / d;
         t -= 1;
         return -c * (t * t * t * t - 1) + b;
     },
     easeInOutQuart: function (t, b, c, d) {
-        t /= d / 2;
+        t = t / (d / 2);
         if (t < 1) {
             return c / 2 * t * t * t * t + b;
         }
@@ -80,16 +65,16 @@ const ease = Object.freeze({
         return -c / 2 * (t * t * t * t - 2) + b;
     },
     easeInQuint: function (t, b, c, d) {
-        t /= d;
+        t = t / d;
         return c * t * t * t * t * t + b;
     },
     easeOutQuint: function (t, b, c, d) {
-        t /= d;
+        t = t / d;
         t -= 1;
         return c * (t * t * t * t * t + 1) + b;
     },
     easeInOutQuint: function (t, b, c, d) {
-        t /= d / 2;
+        t = t / (d / 2);
         if (t < 1) {
             return c / 2 * t * t * t * t * t + b;
         }
@@ -106,13 +91,13 @@ const ease = Object.freeze({
         return -c / 2 * (Math.cos(Math.PI * t / d) - 1) + b;
     },
     easeInExpo: function (t, b, c, d) {
-        return c * Math.pow(2, 10 * (t / d - 1) ) + b;
+        return c * Math.pow(2, 10 * (t / d - 1)) + b;
     },
     easeOutExpo: function (t, b, c, d) {
         return c * (-Math.pow(2, -10 * t / d) + 1) + b;
     },
     easeInOutExpo: function (t, b, c, d) {
-        t /= d / 2;
+        t = t / (d / 2);
         if (t < 1) {
             return c / 2 * Math.pow(2, 10 * (t - 1)) + b;
         }
@@ -120,16 +105,16 @@ const ease = Object.freeze({
         return c / 2 * (-Math.pow(2, -10 * t) + 2) + b;
     },
     easeInCirc: function (t, b, c, d) {
-        t /= d;
+        t = t / d;
         return -c * (Math.sqrt(1 - t * t) - 1) + b;
     },
     easeOutCirc: function (t, b, c, d) {
-        t /= d;
+        t = t / d;
         t -= 1;
         return c * Math.sqrt(1 - t * t) + b;
     },
     easeInOutCirc: function (t, b, c, d) {
-        t /= d / 2;
+        t = t / (d / 2);
         if (t < 1) {
             return -c / 2 * (Math.sqrt(1 - t * t) - 1) + b;
         }
@@ -137,6 +122,23 @@ const ease = Object.freeze({
         return c / 2 * (Math.sqrt(1 - t * t) + 1) + b;
     }
 });
+
+/*
+function typeOf(value) {
+    let type = typeof value;
+
+    if (Array.isArray(value)) {
+        return "array";
+    }
+    if (value === null) {
+        return "null";
+    }
+    if (type !== "object") {
+        return type;
+    }
+    return Object.prototype.toString.call(value).slice(8, -1).toLowerCase();
+}
+*/
 
 function typeOf(value) {
     let type = typeof value;
@@ -192,7 +194,7 @@ function isArrayLike(value) {
 }
 
 function isBuffer(value) {
-    return !isUndefined(global.ArrayBuffer) && value instanceof ArrayBuffer;
+    return !isUndefined(global.ArrayBuffer) && Object.prototype.toString.call(value).slice(8, -1).toLowerCase() === "arraybuffer";
 }
 
 function isEmpty(value) {
@@ -204,11 +206,15 @@ function isGG(value) {
 }
 
 function isNan(value, noparse, base) {
-    return noparse
+    return (
+        noparse
         ? Number.isNaN(value)
-        : Number.isNaN(global.parseInt(value, isNumber(base)
+        : Number.isNaN(global.parseInt(value, (
+            isNumber(base)
             ? base
-            : 10));
+            : 10
+        )))
+    );
 }
 
 function isNode(value) {
@@ -236,9 +242,11 @@ function toArray(value) {
     let list;
 
     if (isGG(value)) {
-        list = value.length() === 1
+        list = (
+            value.length() === 1
             ? [value.raw()]
-            : value.raw();
+            : value.raw()
+        );
     } else if (isNumber(value) || isBuffer(value)) {
         list = arrSlice(new Uint8Array(value));
     } else if (isString(value) || isArray(value) || isArrayLike(value) || isTypedArray(value)) {
@@ -265,15 +273,21 @@ function toCodesFromString(value) {
 }
 
 function toFloat(value, decimals) {
-    const float = global.parseFloat(isString(value)
+    const float = global.parseFloat(
+        isString(value)
         ? value.replace(",", "")
-        : value);
+        : value
+    );
 
-    return Number.isNaN(float)
+    return (
+        Number.isNaN(float)
         ? 0
-        : isNumber(decimals)
+        : (
+            isNumber(decimals)
             ? float.toFixed(decimals)
-            : float;
+            : float
+        )
+    );
 }
 
 function toHyphenated(value) {
@@ -283,24 +297,32 @@ function toHyphenated(value) {
 }
 
 function toInt(value, radix) {
-    const int = global.parseInt(isString(value)
+    const int = global.parseInt((
+        isString(value)
         ? value.replace(",", "")
-        : value, isNumber(radix)
-            ? radix
-            : 10);
+        : value
+    ), (
+        isNumber(radix)
+        ? radix
+        : 10
+    ));
 
-    return Number.isNaN(int)
+    return (
+        Number.isNaN(int)
         ? 0
-        : int;
+        : int
+    );
 }
 
 function toUint8(value) {
     let uint8;
 
     if (isGG(value)) {
-        uint8 = new Uint8Array(value.length() === 1
+        uint8 = new Uint8Array(
+            value.length() === 1
             ? [value.raw()]
-            : value.raw());
+            : value.raw()
+        );
     } else if (isString(value)) {
         uint8 = new Uint8Array(toCodesFromString(value));
     } else if (isNumber(value) || isArray(value) || isArrayLike(value) || isTypedArray(value) || isBuffer(value)) {
@@ -368,9 +390,11 @@ function extend(value, add, overwrite) {
     if (!isObject(value) || !isObject(add)) {
         return value;
     }
-    overwrite = isBoolean(overwrite)
+    overwrite = (
+        isBoolean(overwrite)
         ? overwrite
-        : true;
+        : true
+    );
     Object.keys(add).forEach(function (key) {
         if (overwrite || !value.hasOwnProperty(key)) {
             value[key] = copy(add[key]);
@@ -407,13 +431,17 @@ function supplant(value, supplanter) {
     function replaceExpression(expression, key) {
         const val = supplanter[key];
 
-        return !isUndefined(val)
+        return (
+            !isUndefined(val)
             ? val
-            : expression;
+            : expression
+        );
     }
-    return (isString(value) && isObject(supplanter))
+    return (
+        (isString(value) && isObject(supplanter))
         ? value.replace(/\{([^{}]*)\}/g, replaceExpression)
-        : value;
+        : value
+    );
 }
 
 function uuid() {
@@ -421,9 +449,11 @@ function uuid() {
 
     return id.replace(/[xy]/g, function (char) {
         const rand = Math.random() * 16 | 0;
-        const code = char === "x"
+        const code = (
+            char === "x"
             ? rand
-            : rand & 0x3 | 0x8;
+            : rand & 0x3 | 0x8
+        );
 
         return code.toString(16);
     });
@@ -452,14 +482,14 @@ function getPosition(node) {
 }
 
 function getStyle(node, pseudo) {
-    return global.getComputedStyle(node, isUndefined(pseudo)
+    return global.getComputedStyle(node, (
+        isUndefined(pseudo)
         ? null
-        : pseudo);
+        : pseudo
+    ));
 }
 
-function setImmediate(executable) {
-    const args = arrSlice(arguments, 1);
-
+function setImmediate(executable, ...args) {
     if (!isFunction(executable)) {
         return;
     }
@@ -471,32 +501,42 @@ function getById(id, supplanter) {
 }
 
 function select(selector, supplanter, node) {
-    return isNode(node)
+    return (
+        isNode(node)
         ? node.querySelector(supplant(selector, supplanter))
-        : document.querySelector(supplant(selector, supplanter));
+        : document.querySelector(supplant(selector, supplanter))
+    );
 }
 
 function selectAll(selector, supplanter, node) {
-    return isNode(node)
+    return (
+        isNode(node)
         ? node.querySelectorAll(supplant(selector, supplanter))
-        : document.querySelectorAll(supplant(selector, supplanter));
+        : document.querySelectorAll(supplant(selector, supplanter))
+    );
 }
 
 function scrollIntoView(node, easingExec) {
-    const el = isGG(node)
+    const el = (
+        isGG(node)
         ? node.raw(0)
-        : node;
-    const executable = !isFunction(easingExec)
+        : node
+    );
+    const executable = (
+        !isFunction(easingExec)
         ? ease.easeInOutSine
         : easingExec
+    );
     const relativeTo = document.scrollingElement || document.documentElement || document.body;
     let animation;
     const max = relativeTo.scrollHeight - global.innerHeight;
     let current = 0;
     const start = relativeTo.scrollTop;
-    const end = relativeTo.scrollTop + getPosition(el).y > max
+    const end = (
+        relativeTo.scrollTop + getPosition(el).y > max
         ? max
-        : relativeTo.scrollTop + getPosition(el).y;
+        : relativeTo.scrollTop + getPosition(el).y
+    );
     const framerate = 60 / 1000;
     const duration = 1200;
 
@@ -516,12 +556,16 @@ function scrollIntoView(node, easingExec) {
 }
 
 function scrollToTop(node, easingExec) {
-    const el = isGG(node)
+    const el = (
+        isGG(node)
         ? node.raw(0)
-        : node;
-    const executable = !isFunction(easingExec)
+        : node
+    );
+    const executable = (
+        !isFunction(easingExec)
         ? ease.easeInOutSine
         : easingExec
+    );
     let animation;
     let current = 0;
     const start = el.scrollTop;

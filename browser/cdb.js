@@ -3,7 +3,15 @@
 import emitter from "./emitter.js";
 import utils from "./utils.js";
 
-const global = globalThis || window || this;
+const global = (
+    globalThis !== "undefined"
+    ? globalThis
+    : (
+        window !== "undefined"
+        ? window
+        : this
+    )
+);
 const indexedDB = global.indexedDB || global.mozIndexedDB || global.webkitIndexedDB || global.msIndexedDB;
 const cdb = emitter();
 
@@ -31,14 +39,18 @@ function cdbRequest(req, db) {
             return db.transaction([table], "readwrite").objectStore(table).delete(key);
         },
         insert: function (table, value, key) {
-            return key === undefined
+            return (
+                key === undefined
                 ? db.transaction([table], "readwrite").objectStore(table).add(value)
-                : db.transaction([table], "readwrite").objectStore(table).add(value, key);
+                : db.transaction([table], "readwrite").objectStore(table).add(value, key)
+            );
         },
         update: function (table, value, key) {
-            return key === undefined
+            return (
+                key === undefined
                 ? db.transaction([table], "readwrite").objectStore(table).put(value)
-                : db.transaction([table], "readwrite").objectStore(table).put(value, key);
+                : db.transaction([table], "readwrite").objectStore(table).put(value, key)
+            );
         },
         clear: function (table) {
             return db.transaction([table], "readwrite").objectStore(table).clear();
@@ -90,30 +102,6 @@ function dbUpgrade(executable) {
     };
 }
 
-function dbOpen(name, version, executable) {
-    let request;
-
-    if (utils.typeOf(executable) !== "function") {
-        executable = utils.typeOf(version) === "function"
-            ? version
-            : utils.noop;
-    }
-    if (utils.typeOf(version) !== "number") {
-        version = 1;
-    }
-    request = indexedDB.open(name, version);
-    request.onerror = dbError;
-    request.onsuccess = dbOpenSuccess;
-    request.onupgradeneeded = dbUpgrade(executable);
-};
-
-function dbDelete(name) {
-    const request = indexedDB.deleteDatabase(name);
-
-    request.onerror = dbError;
-    request.onsuccess = dbDeleteSuccess;
-};
-
 function dbOpenSuccess(e) {
     const req = e.target;
     const db = req.result;
@@ -122,7 +110,41 @@ function dbOpenSuccess(e) {
     cdb.emit("open", e, cdbRequest(req, db));
 }
 
+function dbOpen(name, version, executable) {
+    let request;
+
+    if (utils.typeOf(executable) !== "function") {
+        executable = (
+            utils.typeOf(version) === "function"
+            ? version
+            : utils.noop
+        );
+    }
+    if (utils.typeOf(version) !== "number") {
+        version = 1;
+    }
+    request = indexedDB.open(name, version);
+    request.onerror = dbError;
+    request.onsuccess = dbOpenSuccess;
+    request.onupgradeneeded = dbUpgrade(executable);
+}
+
+function dbDelete(name) {
+    const request = indexedDB.deleteDatabase(name);
+
+    request.onerror = dbError;
+    request.onsuccess = dbDeleteSuccess;
+}
+
 export default Object.freeze(utils.extend(cdb, {
-    open: indexedDB ? dbOpen : () => cdb.emit("error", "IndexedDB not supported."),
-    delete: indexedDB ? dbDelete : () => cdb.emit("error", "IndexedDB not supported.")
+    open: (
+        indexedDB
+        ? dbOpen
+        : () => cdb.emit("error", "IndexedDB not supported.")
+    ),
+    delete: (
+        indexedDB
+        ? dbDelete
+        : () => cdb.emit("error", "IndexedDB not supported.")
+    )
 }));
