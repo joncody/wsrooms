@@ -6,14 +6,25 @@ const emitter = function (value) {
         ? value
         : {}
     );
+    const events = {};
     const api = Object.create(null);
 
-    api.events = {};
+    api.emit = function (type, ...args) {
+        const list = events[type];
+        if (!Array.isArray(list)) {
+            return false;
+        }
+        list.forEach((fn) => {
+            fn.apply(api, args);
+        });
+        return true;
+    };
+
     api.addListener = function (type, listener) {
         if (typeof listener !== "function") {
             return api;
         }
-        if (api.events.newListener) {
+        if (events.newListener) {
             api.emit(
                 "newListener",
                 type,
@@ -24,14 +35,35 @@ const emitter = function (value) {
                 )
             );
         }
-        if (!api.events[type]) {
-            api.events[type] = [listener];
+        if (!events[type]) {
+            events[type] = [listener];
         } else {
-            api.events[type].push(listener);
+            events[type].push(listener);
         }
         return api;
     };
     api.on = api.addListener;
+
+    api.removeListener = function (type, listener) {
+        const list = events[type];
+        if (!Array.isArray(list) || typeof listener !== "function") {
+            return api;
+        }
+        const index = list.findIndex((v) => {
+            return v === listener || (v.listener && v.listener === listener);
+        });
+        if (index >= 0) {
+            list.splice(index, 1);
+            if (list.length === 0) {
+                delete events[type];
+            }
+            if (events.removeListener) {
+                api.emit("removeListener", type, listener);
+            }
+        }
+        return api;
+    };
+    api.off = api.removeListener;
 
     api.once = function (type, listener) {
         if (typeof listener !== "function") {
@@ -45,34 +77,13 @@ const emitter = function (value) {
         return api.on(type, onetime);
     };
 
-    api.removeListener = function (type, listener) {
-        const list = api.events[type];
-        if (!Array.isArray(list) || typeof listener !== "function") {
-            return api;
-        }
-        const index = list.findIndex((v) => {
-            return v === listener || (v.listener && v.listener === listener);
-        });
-        if (index >= 0) {
-            list.splice(index, 1);
-            if (list.length === 0) {
-                delete api.events[type];
-            }
-            if (api.events.removeListener) {
-                api.emit("removeListener", type, listener);
-            }
-        }
-        return api;
-    };
-    api.off = api.removeListener;
-
     api.removeAllListeners = function (type) {
         if (!type) {
-            if (!api.events.removeListener) {
+            if (!events.removeListener) {
                 // Fast path: no removeListener events, delete all keys directly
-                Object.keys(api.events).forEach((key) => delete api.events[key]);
+                Object.keys(events).forEach((key) => delete events[key]);
             } else {
-                Object.keys(api.events).forEach((key) => {
+                Object.keys(events).forEach((key) => {
                     if (key !== "removeListener") {
                         api.removeAllListeners(key);
                     }
@@ -81,7 +92,7 @@ const emitter = function (value) {
             }
             return api;
         }
-        const list = api.events[type];
+        const list = events[type];
         if (Array.isArray(list)) {
             list.forEach((fn) => {
                 api.removeListener(type, fn);
@@ -92,21 +103,12 @@ const emitter = function (value) {
 
     api.listeners = function (type) {
         if (typeof type === "string") {
-            return api.events[type] || [];
+            return events[type] || [];
         }
-        return Object.values(api.events).flat();
+        return Object.values(events).flat();
     };
 
-    api.emit = function (type, ...args) {
-        const list = api.events[type];
-        if (!Array.isArray(list)) {
-            return false;
-        }
-        list.forEach((fn) => {
-            fn.apply(api, args);
-        });
-        return true;
-    };
+    api.events = events;
 
     return Object.assign(em, api);
 };

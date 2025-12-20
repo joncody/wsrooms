@@ -38,11 +38,9 @@ function buildMessage(room, event, dst, src, payload) {
 
 function getRoom(name) {
     const room = emitter();
-    const store = {
-        open: false,
-        id: "",
-        members: []
-    };
+    const members = [];
+    let open = false;
+    let roomID = "";
 
     if (typeof name !== "string") {
         return console.warn("Room name must be a string");
@@ -54,19 +52,19 @@ function getRoom(name) {
     room.name = name;
 
     room.open = function () {
-        return store.open;
+        return open;
     };
 
     room.members = function () {
-        return utils.copy(store.members);
+        return global.structuredClone(members);
     };
 
     room.id = function () {
-        return store.id;
+        return roomID;
     };
 
     room.send = function (event, payload, dst) {
-        if (store.open === false) {
+        if (open === false) {
             return console.warn("Cannot send: socket is closed.");
         }
         if (typeof event !== "string") {
@@ -75,11 +73,11 @@ function getRoom(name) {
         if (reserved.includes(event)) {
             return console.warn("Reserved event: " + event);
         }
-        socket.send(buildMessage(name, event, dst, store.id, payload));
+        socket.send(buildMessage(name, event, dst, roomID, payload));
     };
 
     room.join = function (roomname) {
-        if (store.open === false) {
+        if (open === false) {
             return console.warn("Cannot send: socket is closed.");
         }
         if (typeof roomname !== "string") {
@@ -96,10 +94,10 @@ function getRoom(name) {
     };
 
     room.leave = function () {
-        if (store.open === false) {
+        if (open === false) {
             return console.warn("Cannot leave: socket is closed.");
         }
-        socket.send(buildMessage(name, "leave", store.id, store.id, ""));
+        socket.send(buildMessage(name, "leave", roomID, roomID, ""));
     };
 
     room.parse = function (packet) {
@@ -107,33 +105,33 @@ function getRoom(name) {
 
         switch (packet.event) {
         case "join":
-            store.id = packet.src;
-            store.members = JSON.parse(utils.stringFromCodes(packet.payload));
-            store.open = true;
+            roomID = packet.src;
+            members = JSON.parse(utils.stringFromCodes(packet.payload));
+            open = true;
             room.emit("open");
-            socket.send(buildMessage(name, "joined", "", store.id, store.id));
+            socket.send(buildMessage(name, "joined", "", roomID, roomID));
             break;
         case "joined":
             packet.payload = utils.stringFromCodes(packet.payload);
-            index = store.members.indexOf(packet.payload);
+            index = members.indexOf(packet.payload);
             if (index === -1) {
-                store.members.push(packet.payload);
+                members.push(packet.payload);
                 room.emit("joined", packet.payload);
             }
             break;
         case "leave":
-            socket.send(buildMessage(name, "left", "", store.id, store.id));
+            socket.send(buildMessage(name, "left", "", roomID, roomID));
             room.emit("close");
-            store.open = false;
-            store.members = [];
-            store.id = "";
+            open = false;
+            members.length = 0;;
+            roomID = "";
             delete rooms[name];
             break;
         case "left":
             packet.payload = utils.stringFromCodes(packet.payload);
-            index = store.members.indexOf(packet.payload);
+            index = members.indexOf(packet.payload);
             if (index !== -1) {
-                store.members.splice(index, 1);
+                members.splice(index, 1);
                 room.emit("left", packet.payload);
             }
             break;
@@ -156,7 +154,7 @@ function getRoom(name) {
     rooms[name] = room;
 
     if (name !== "root") {
-        socket.send(buildMessage(name, "join", store.id, store.id, ""));
+        socket.send(buildMessage(name, "join", roomID, roomID, ""));
     } else {
         room.purge = function () {
             Object.keys(rooms).forEach(function (name) {
