@@ -106,7 +106,7 @@ function getRoom(name) {
         switch (packet.event) {
         case "join":
             roomID = packet.src;
-            members = JSON.parse(utils.stringFromCodes(packet.payload));
+            members.push(...JSON.parse(utils.stringFromCodes(packet.payload)));
             open = true;
             room.emit("open");
             socket.send(buildMessage(name, "joined", "", roomID, roomID));
