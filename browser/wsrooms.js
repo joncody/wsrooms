@@ -1,6 +1,8 @@
 "use strict";
 
-import gg from "./gg.js";
+import betterview from "./betterview.js";
+import emitter from "./emitter.js";
+import utils from "./utils.js";
 
 const rooms = {};
 const reserved = ["open", "close", "joined", "join", "leave", "left"];
@@ -20,7 +22,7 @@ function buildMessage(room, event, dst, src, payload) {
         src = "";
     }
     payloadlen = payload.byteLength || payload.length || 0;
-    data = gg.betterview(room.length + event.length + dst.length + src.length + payloadlen + 20);
+    data = betterview(new ArrayBuffer(room.length + event.length + dst.length + src.length + payloadlen + 20));
     data.writeUint32(room.length).writeString(room);
     data.writeUint32(event.length).writeString(event);
     data.writeUint32(dst.length).writeString(dst);
@@ -31,11 +33,11 @@ function buildMessage(room, event, dst, src, payload) {
     } else {
         data.writeBytes(payload);
     }
-    return data.seek(0).getBytes();
+    return data.rewind().getBytes();
 }
 
 function getRoom(name) {
-    const room = gg.emitter();
+    const room = emitter();
     const store = {
         open: false,
         id: "",
@@ -56,7 +58,7 @@ function getRoom(name) {
     };
 
     room.members = function () {
-        return gg.utils.copy(store.members);
+        return utils.copy(store.members);
     };
 
     room.id = function () {
@@ -106,13 +108,13 @@ function getRoom(name) {
         switch (packet.event) {
         case "join":
             store.id = packet.src;
-            store.members = JSON.parse(gg.utils.toStringFromCodes(packet.payload));
+            store.members = JSON.parse(utils.stringFromCodes(packet.payload));
             store.open = true;
             room.emit("open");
             socket.send(buildMessage(name, "joined", "", store.id, store.id));
             break;
         case "joined":
-            packet.payload = gg.utils.toStringFromCodes(packet.payload);
+            packet.payload = utils.stringFromCodes(packet.payload);
             index = store.members.indexOf(packet.payload);
             if (index === -1) {
                 store.members.push(packet.payload);
@@ -128,7 +130,7 @@ function getRoom(name) {
             delete rooms[name];
             break;
         case "left":
-            packet.payload = gg.utils.toStringFromCodes(packet.payload);
+            packet.payload = utils.stringFromCodes(packet.payload);
             index = store.members.indexOf(packet.payload);
             if (index !== -1) {
                 store.members.splice(index, 1);
@@ -141,7 +143,7 @@ function getRoom(name) {
     };
 
     room.clearListeners = function (exceptions) {
-        if (!gg.utils.isArray(exceptions)) {
+        if (!Array.isArray(exceptions)) {
             exceptions = [];
         }
         Object.keys(room.events).forEach(function (event) {
@@ -164,7 +166,7 @@ function getRoom(name) {
             });
         };
         room.rooms = function () {
-            return gg.utils.copy(rooms);
+            return global.structuredClone(rooms);
         };
     }
 
@@ -181,7 +183,7 @@ const wsrooms = function (url) {
     socket.binaryType = "arraybuffer";
 
     socket.onmessage = function (e) {
-        const data = gg.betterview(e.data);
+        const data = betterview(e.data);
         const packet = {
             room: data.getString(data.getUint32()),
             event: data.getString(data.getUint32()),

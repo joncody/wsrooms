@@ -6,123 +6,109 @@ const emitter = function (value) {
         ? value
         : {}
     );
-    em.emitter = true;
-    em.events = {};
+    const api = Object.create(null);
 
-    em.addListener = function (type, listener) {
-        const list = em.events[type];
-
-        if (typeof listener === "function") {
-            if (em.events.newListener) {
-                em.emit("newListener", type, (
+    api.events = {};
+    api.addListener = function (type, listener) {
+        if (typeof listener !== "function") {
+            return api;
+        }
+        if (api.events.newListener) {
+            api.emit(
+                "newListener",
+                type,
+                (
                     typeof listener.listener === "function"
                     ? listener.listener
                     : listener
-                ));
+                )
+            );
+        }
+        if (!api.events[type]) {
+            api.events[type] = [listener];
+        } else {
+            api.events[type].push(listener);
+        }
+        return api;
+    };
+    api.on = api.addListener;
+
+    api.once = function (type, listener) {
+        if (typeof listener !== "function") {
+            return api;
+        }
+        const onetime = (...args) => {
+            api.removeListener(type, onetime);
+            listener.apply(api, args);
+        };
+        onetime.listener = listener;
+        return api.on(type, onetime);
+    };
+
+    api.removeListener = function (type, listener) {
+        const list = api.events[type];
+        if (!Array.isArray(list) || typeof listener !== "function") {
+            return api;
+        }
+        const index = list.findIndex((v) => {
+            return v === listener || (v.listener && v.listener === listener);
+        });
+        if (index >= 0) {
+            list.splice(index, 1);
+            if (list.length === 0) {
+                delete api.events[type];
             }
-            if (!list) {
-                em.events[type] = [listener];
+            if (api.events.removeListener) {
+                api.emit("removeListener", type, listener);
+            }
+        }
+        return api;
+    };
+    api.off = api.removeListener;
+
+    api.removeAllListeners = function (type) {
+        if (!type) {
+            if (!api.events.removeListener) {
+                // Fast path: no removeListener events, delete all keys directly
+                Object.keys(api.events).forEach((key) => delete api.events[key]);
             } else {
-                em.events[type].push(listener);
-            }
-        }
-        return em;
-    };
-    em.on = em.addListener;
-
-    em.once = function (type, listener) {
-        function onetime() {
-            em.removeListener(type, onetime);
-            listener.apply(em);
-        }
-        if (typeof listener === "function") {
-            onetime.listener = listener;
-            em.on(type, onetime);
-        }
-        return em;
-    };
-
-    em.removeListener = function (type, listener) {
-        const list = em.events[type];
-        let position = -1;
-
-        if (typeof listener === "function" && list) {
-            list.some(function (value, index) {
-                if (value === listener || (value.listener && value.listener === listener)) {
-                    position = index;
-                    return true;
-                }
-            });
-            if (position >= 0) {
-                if (list.length === 1) {
-                    delete em.events[type];
-                } else {
-                    list.splice(position, 1);
-                }
-                if (em.events.removeListener) {
-                    em.emit("removeListener", type, listener);
-                }
-            }
-        }
-        return em;
-    };
-    em.off = em.removeListener;
-
-    em.removeAllListeners = function (type) {
-        let list;
-
-        if (!em.events.removeListener) {
-            if (!type) {
-                Object.keys(em.events).forEach(function (key) {
-                    delete em.events[key];
+                Object.keys(api.events).forEach((key) => {
+                    if (key !== "removeListener") {
+                        api.removeAllListeners(key);
+                    }
                 });
-            } else {
-                delete em.events[type];
+                api.removeAllListeners("removeListener");
             }
-        } else if (!type) {
-            Object.keys(em.events).forEach(function (key) {
-                if (key !== "removeListener") {
-                    em.removeAllListeners(key);
-                }
-            });
-            em.removeAllListeners("removeListener");
-        } else {
-            list = em.events[type];
-            list.forEach(function (item) {
-                em.removeListener(type, item);
-            });
-            delete em.events[type];
+            return api;
         }
-        return em;
-    };
-
-    em.listeners = function (type) {
-        let list = [];
-
-        if (typeof type === "string" && em.events[type]) {
-            list = em.events[type];
-        } else {
-            Object.keys(em.events).forEach(function (key) {
-                list.push(em.events[key]);
+        const list = api.events[type];
+        if (Array.isArray(list)) {
+            list.forEach((fn) => {
+                api.removeListener(type, fn);
             });
         }
-        return list;
+        return api;
     };
 
-    em.emit = function (type, ...args) {
-        const list = em.events[type];
-        let emitted = false;
-
-        if (list) {
-            list.forEach(function (value) {
-                value.apply(em, args);
-            });
-            emitted = true;
+    api.listeners = function (type) {
+        if (typeof type === "string") {
+            return api.events[type] || [];
         }
-        return emitted;
+        return Object.values(api.events).flat();
     };
 
-    return em;
+    api.emit = function (type, ...args) {
+        const list = api.events[type];
+        if (!Array.isArray(list)) {
+            return false;
+        }
+        list.forEach((fn) => {
+            fn.apply(api, args);
+        });
+        return true;
+    };
+
+    return Object.assign(em, api);
 };
 
 export default Object.freeze(emitter);

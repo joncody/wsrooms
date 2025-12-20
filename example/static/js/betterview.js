@@ -1,311 +1,217 @@
 "use strict";
 
-function isGG(val) {
-    return val && typeof val === "object" && val.gg === true;
-}
+const encoder = new TextEncoder();
+const decoder = new TextDecoder("utf-8");
 
-function toCodesFromString(val) {
-    return Uint8Array.from(val, (c) => c.charCodeAt(0));
-}
-
-function toStringFromCodes(val) {
-    return Array.from(val, (b) => String.fromCharCode(b)).join("");
-}
-
-function toUint8(val) {
-    const type = Object.prototype.toString.call(val).slice(8, -1).toLowerCase();
-
-    if (type === "uint8array") {
-        return val;
+const betterview = function (buffer, viewOffset = 0, viewLength = undefined) {
+    if (!(buffer instanceof ArrayBuffer)) {
+        throw new TypeError("betterview requires an ArrayBuffer");
     }
-    if (isGG(val)) {
-        const raw = (
-            (val.length() === 1)
-            ? [val.raw()]
-            : val.raw()
-        );
-        return new Uint8Array(raw);
-    }
-    if (typeof val === "string") {
-        return toCodesFromString(val);
-    }
-    if (type === "arraybuffer") {
-        return new Uint8Array(val);
-    }
-    if (Array.isArray(val) || (val && Object.prototype.toString.call(val.buffer).slice(8, -1).toLowerCase() === "arraybuffer")) {
-        return new Uint8Array(val);
-    }
-    return new Uint8Array([val]);
-}
-
-function toBuffer(val) {
-    return toUint8(val).buffer;
-}
-
-const betterview = function (value, offset, length) {
-    const numbersandbytes = {
-        "Int8": 1,
-        "Uint8": 1,
-        "Int16": 2,
-        "Uint16": 2,
-        "Int32": 4,
-        "Uint32": 4,
-        "Float32": 4,
-        "Float64": 8
-    };
-    const better = {};
-    const store = {};
-    store.buffer = toBuffer(value); // Initialize buffer and view
-    const bufLen = store.buffer.byteLength;
-    const viewOffset = offset || 0;
-    const viewLength = (
-        length === undefined
-        ? (bufLen - viewOffset)
-        : length
+    const view = new DataView(
+        buffer,
+        viewOffset,
+        viewLength ?? buffer.byteLength - viewOffset
     );
-    store.view = new DataView(store.buffer, viewOffset, viewLength);
-    store.offset = 0; // The internal cursor relative to the View
+    let cursor = 0;
+    const api = Object.create(null);
 
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 
-    function checkBounds(relativeOffset, byteSize) {
-        if (typeof relativeOffset !== "number") {
+    function check(offset, size) {
+        if (typeof offset !== "number") {
             throw new TypeError("Offset must be a number");
         }
-        if (typeof byteSize !== "number") {
-            throw new TypeError("Length must be a number");
+        if (typeof size !== "number") {
+            throw new TypeError("Size must be a number");
         }
-        if (relativeOffset < 0) {
-            throw new RangeError("Offset is negative");
+        if (offset < 0) {
+            throw new RangeError("Offset must be positive");
         }
-        if (byteSize < 0) {
-            throw new RangeError("Length is negative");
+        if (size < 0) {
+            throw new RangeError("Size must be positive");
         }
-        if (relativeOffset + byteSize > store.view.byteLength) {
-            throw new RangeError("Offset + length exceeds view bounds");
+        if (offset + size > view.byteLength) {
+            throw new RangeError("Offset + size exceeds view bounds");
         }
     }
-
-    function getAbsoluteAddr(relativeOffset) {
-        return store.view.byteOffset + relativeOffset;
+    
+    function advance(size) {
+        const pos = cursor;
+        check(pos, size); // Ensure we're not going out of bounds
+        cursor += size;   // Move the cursor forward by `size`
+        return pos;       // Return the previous position
     }
 
     // -------------------------------------------------------------------------
     // Cursor Management
     // -------------------------------------------------------------------------
 
-    function rewind() {
-        store.offset = 0;
-        return better;
-    }
+    api.rewind = function () {
+        cursor = 0;
+        return api;
+    };
 
-    function eof() {
-        return store.offset >= store.view.byteLength;
-    }
+    api.tell = function () {
+        return cursor;
+    };
 
-    function tell() {
-        return store.offset;
-    }
+    api.seek = function (pos) {
+        check(pos, 0);
+        cursor = pos;
+        return api;
+    };
 
-    function seek(val) {
-        checkBounds(val, 0);
-        store.offset = val;
-        return better;
-    }
+    api.skip = function (n) {
+        check(cursor + n, 0);
+        cursor += n;
+        return api;
+    };
 
-    function skip(val) {
-        checkBounds(store.offset + val, 0);
-        store.offset += val;
-        return better;
-    }
+    api.eof = function () {
+        return cursor >= view.byteLength;
+    };
 
     // -------------------------------------------------------------------------
     // Buffer / Byte Operations
     // -------------------------------------------------------------------------
 
-    function slice(start, end) {
-        const viewStart = store.view.byteOffset;
-        const absStart = viewStart + (start || 0);
-        const absEnd = (
-            (end === undefined)
-            ? (viewStart + store.view.byteLength)
-            : (viewStart + end)
+    api.slice = function (start = 0, end = view.byteLength) {
+        return buffer.slice(view.byteOffset + start, view.byteOffset + end);
+    };
+    
+    api.getBytes = function (len = view.byteLength - cursor) {
+        const pos = advance(len);
+        return new Uint8Array(
+            buffer.slice(
+                view.byteOffset + pos,
+                view.byteOffset + pos + len
+            )
         );
-        return store.view.buffer.slice(absStart, absEnd);
-    }
+    };
 
-    function getBytes(len, activeOffset) {
-        const useCursor = (activeOffset === undefined);
-        const currentOffset = (
-            useCursor
-            ? store.offset
-            : activeOffset
-        );
-        const activeLen = (
-            (len === undefined)
-            ? store.view.byteLength - currentOffset
-            : len
-        );
-        checkBounds(currentOffset, activeLen);
-        if (useCursor) {
-            store.offset += activeLen;
+    api.writeBytes = function (bytes) {
+        if (!(bytes instanceof Uint8Array)) {
+            throw new TypeError("writeBytes requires a Uint8Array");
         }
-        const absStart = getAbsoluteAddr(currentOffset);
-        return toUint8(store.view.buffer.slice(absStart, absStart + activeLen));
-    }
-
-    function setBytes(activeOffset, val) {
-        const currentOffset = (
-            (activeOffset === undefined)
-            ? store.offset
-            : activeOffset
-        );
-        const bytes = toUint8(val);
-        const len = bytes.byteLength || bytes.length || 0;
-        checkBounds(currentOffset, len);
-        const absStart = getAbsoluteAddr(currentOffset);
-        new Uint8Array(store.view.buffer, absStart, len).set(bytes);
-        return better;
-    }
-
-    function writeBytes(val) {
-        const bytes = toUint8(val);
-        const len = bytes.byteLength;
-        checkBounds(store.offset, len);
-        const absStart = getAbsoluteAddr(store.offset);
-        new Uint8Array(store.view.buffer, absStart, len).set(bytes);
-        store.offset += len;
-        return better;
-    }
+        const pos = advance(bytes.byteLength);
+        new Uint8Array(
+            buffer,
+            view.byteOffset + pos,
+            bytes.byteLength
+        ).set(bytes);
+        return api;
+    };
 
     // -------------------------------------------------------------------------
-    // String Operations
+    // Strings (UTF-8)
     // -------------------------------------------------------------------------
 
-    function getString(len, activeOffset) {
-        return toStringFromCodes(getBytes(len, activeOffset));
-    }
+    api.getString = function (length) {
+        return decoder.decode(api.getBytes(length));
+    };
 
-    function setString(activeOffset, val) {
-        return setBytes(activeOffset, toCodesFromString(val));
-    }
-
-    function writeString(val) {
-        return writeBytes(toCodesFromString(val));
-    }
-
-    function getChar(activeOffset) {
-        return getString(1, activeOffset);
-    }
-
-    function setChar(activeOffset, character) {
-        return setString(activeOffset, character);
-    }
-
-    function writeChar(character) {
-        return writeString(character);
-    }
+    api.writeString = function (string) {
+        return api.writeBytes(encoder.encode(string));
+    };
 
     // -------------------------------------------------------------------------
-    // Numeric Operations (Factories)
+    // Numbers
     // -------------------------------------------------------------------------
 
-    function getNumber(type, byteSize) {
-        return function (activeOffset, littleEndian) {
-            if (typeof activeOffset === "boolean") {
-                littleEndian = activeOffset;
-                activeOffset = undefined;
-            }
-            const useCursor = (activeOffset === undefined);
-            const currentOffset = (
-                useCursor
-                ? store.offset
-                : activeOffset
-            );
-            checkBounds(currentOffset, byteSize);
-            const val = store.view["get" + type](currentOffset, littleEndian);
-            if (useCursor) {
-                store.offset += byteSize;
-            }
-            return val;
-        };
-    }
+    api.getUint8 = function () {
+        return view.getUint8(advance(1));
+    };
 
-    function setNumber(type, byteSize) {
-        return function (activeOffset, val, littleEndian) {
-            const currentOffset = (
-                (activeOffset === undefined)
-                ? store.offset
-                : activeOffset
-            );
-            checkBounds(currentOffset, byteSize);
-            store.view["set" + type](currentOffset, val, littleEndian);
-            return better;
-        };
-    }
+    api.getInt8 = function () {
+        return view.getInt8(advance(1));
+    };
 
-    function writeNumber(type, byteSize) {
-        return function (val, littleEndian) {
-            checkBounds(store.offset, byteSize);
-            store.view["set" + type](store.offset, val, littleEndian);
-            store.offset += byteSize;
-            return better;
-        };
-    }
+    api.getUint16 = function (littleEndian = false) {
+        return view.getUint16(advance(2), littleEndian);
+    };
+
+    api.getInt16 = function (littleEndian = false) {
+        return view.getInt16(advance(2), littleEndian);
+    };
+
+    api.getUint32 = function (littleEndian = false) {
+        return view.getUint32(advance(4), littleEndian);
+    };
+
+    api.getInt32 = function (littleEndian = false) {
+        return view.getInt32(advance(4), littleEndian);
+    };
+
+    api.getFloat32 = function (littleEndian = false) {
+        return view.getFloat32(advance(4), littleEndian);
+    };
+
+    api.getFloat64 = function (littleEndian = false) {
+        return view.getFloat64(advance(8), littleEndian);
+    };
+
+    api.writeUint8 = function (v) {
+        view.setUint8(advance(1), v);
+        return api;
+    };
+
+    api.writeInt8 = function (v) {
+        view.setInt8(advance(1), v);
+        return api;
+    };
+
+    api.writeUint16 = function (v, littleEndian = false) {
+        view.setUint16(advance(2), v, littleEndian);
+        return api;
+    };
+    
+    api.writeInt16 = function (v, littleEndian = false) {
+        view.setInt16(advance(2), v, littleEndian);
+        return api;
+    };
+
+    api.writeUint32 = function (v, littleEndian = false) {
+        view.setUint32(advance(4), v, littleEndian);
+        return api;
+    };
+
+    api.writeInt32 = function (v, littleEndian = false) {
+        view.setInt32(advance(4), v, littleEndian);
+        return api;
+    };
+
+    api.writeFloat32 = function (v, littleEndian = false) {
+        view.setFloat32(advance(4), v, littleEndian);
+        return api;
+    };
+
+    api.writeFloat64 = function (v, littleEndian = false) {
+        view.setFloat64(advance(8), v, littleEndian);
+        return api;
+    };
 
     // -------------------------------------------------------------------------
-    // Build Interface
+    // Public, immutable properties
     // -------------------------------------------------------------------------
 
-    Object.keys(numbersandbytes).forEach(function (type) {
-        const bytes = numbersandbytes[type];
-        better["get" + type] = getNumber(type, bytes);
-        better["set" + type] = setNumber(type, bytes);
-        better["write" + type] = writeNumber(type, bytes);
-    });
-
-    Object.assign(better, {
-        betterview: true,
-        rewind,
-        eof,
-        tell,
-        seek,
-        skip,
-        slice,
-        getBytes,
-        setBytes,
-        writeBytes,
-        getString,
-        setString,
-        writeString,
-        getChar,
-        setChar,
-        writeChar
-    });
-
-    Object.defineProperties(better, {
-        "view": {
-            value: store.view,
-            writable: false,
-            enumerable: true,
-            configurable: false
-        },
+    Object.defineProperties(api, {
         "buffer": {
-            value: store.buffer,
-            writable: false,
+            value: buffer,
             enumerable: true,
-            configurable: false
+        },
+        "view": {
+            value: view,
+            enumerable: true,
         },
         "length": {
-            value: () => store.view.byteLength,
-            writable: false,
+            value: view.byteLength,
             enumerable: true
         }
     });
 
-    return Object.freeze(better);
+    return Object.freeze(api);
 };
 
 export default Object.freeze(betterview);
