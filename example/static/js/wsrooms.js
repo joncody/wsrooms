@@ -106,6 +106,7 @@ function getRoom(name) {
         switch (packet.event) {
         case "join":
             roomID = packet.src;
+            members.length = 0;
             members.push(...JSON.parse(utils.stringFromCodes(packet.payload)));
             open = true;
             room.emit("open");

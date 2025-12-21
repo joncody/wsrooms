@@ -66,26 +66,35 @@ func main() {
 ### 2. Client Usage (JavaScript)
 
 ```js
+"use strict";
+
 import wsrooms from "./wsrooms.js";
+import utils from "./utils.js";
 
 // Connect to the server
 const root = wsrooms("ws://localhost:8080/ws");
 
-// Join a room named "Lobby"
-const lobby = root.join("Lobby");
-
 // Listen for connection success
-lobby.on("open", () => {
-    console.log("Joined Lobby! My ID:", lobby.id());
-    
+root.on("open", () => {
+    console.log("Joined Lobby! My ID:", root.id());
+    const lobby = root.join("lobby");
+
+    lobby.on("open", () => {
+        lobby.send("chat", "Hello, planet!");
+    });
+    lobby.on("chat", (payload, senderId) => {
+        console.log(senderId, "says:", utils.stringFromCodes(payload));
+    });
+
     // Send a message
-    lobby.send("chat", "Hello World!");
+    root.send("chat", "Hello World!");
 });
 
 // Listen for messages
-lobby.on("chat", (payload, senderId) => {
+root.on("chat", (payload, senderId) => {
     console.log(senderId, "says:", payload);
 });
+
 ```
 
 ---
