@@ -204,8 +204,8 @@ const wsrooms = function (url) {
     };
 
     socket.onclose = function () {
-        Object.keys(rooms).forEach(function (name) {
-            rooms[name].emit("close");
+        Object.values(rooms).forEach(function (room) {
+            room.emit("close");
         });
     };
 
