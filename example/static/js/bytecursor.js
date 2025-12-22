@@ -3,9 +3,9 @@
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8");
 
-const betterview = function (buffer, viewOffset = 0, viewLength = undefined) {
+const bytecursor = function (buffer, viewOffset = 0, viewLength = undefined) {
     if (!(buffer instanceof ArrayBuffer)) {
-        throw new TypeError("betterview requires an ArrayBuffer");
+        throw new TypeError("bytecursor requires an ArrayBuffer");
     }
     const view = new DataView(
         buffer,
@@ -214,4 +214,4 @@ const betterview = function (buffer, viewOffset = 0, viewLength = undefined) {
     return Object.freeze(api);
 };
 
-export default Object.freeze(betterview);
+export default Object.freeze(bytecursor);

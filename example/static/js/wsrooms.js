@@ -1,6 +1,6 @@
 "use strict";
 
-import betterview from "./betterview.js";
+import bytecursor from "./bytecursor.js";
 import emitter from "./emitter.js";
 
 const decoder = new TextDecoder("utf-8");
@@ -22,7 +22,7 @@ function buildMessage(room, event, dst, src, payload) {
         src = "";
     }
     payloadlen = payload.byteLength || payload.length || 0;
-    data = betterview(new ArrayBuffer(room.length + event.length + dst.length + src.length + payloadlen + 20));
+    data = bytecursor(new ArrayBuffer(room.length + event.length + dst.length + src.length + payloadlen + 20));
     data.writeUint32(room.length).writeString(room);
     data.writeUint32(event.length).writeString(event);
     data.writeUint32(dst.length).writeString(dst);
@@ -182,7 +182,7 @@ const wsrooms = function (url) {
     socket.binaryType = "arraybuffer";
 
     socket.onmessage = function (e) {
-        const data = betterview(e.data);
+        const data = bytecursor(e.data);
         const packet = {
             room: data.getString(data.getUint32()),
             event: data.getString(data.getUint32()),
