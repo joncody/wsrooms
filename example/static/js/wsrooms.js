@@ -56,7 +56,10 @@ function getRoom(name) {
     };
 
     room.members = function () {
-        return global.structuredClone(members);
+        if (typeof structuredClone === "function") {
+            return structuredClone(members);
+        }
+        return JSON.parse(JSON.stringify(members));
     };
 
     room.id = function () {
@@ -64,27 +67,28 @@ function getRoom(name) {
     };
 
     room.send = function (event, payload, dst) {
-        if (open === false) {
-            return console.warn("Cannot send: socket is closed.");
+        if (!open) {
+            throw new Error("Cannot send: socket is closed.");
         }
         if (typeof event !== "string") {
-            return console.warn("Event name must  be a string.");
+            throw new Error("Event name must  be a string.");
         }
         if (reserved.includes(event)) {
-            return console.warn("Reserved event: " + event);
+            throw new Error("Reserved event: " + event);
         }
         socket.send(buildMessage(name, event, dst, roomID, payload));
+        return room;
     };
 
     room.join = function (roomname) {
-        if (open === false) {
-            return console.warn("Cannot send: socket is closed.");
+        if (!open) {
+            throw new Error("Cannot join: room is closed.");
         }
         if (typeof roomname !== "string") {
-            return console.warn("Room name must be a string.");
+            throw new TypeError("Room name must be a string.");
         }
         if (roomname === "root") {
-            return console.warn("Root room is always joined.");
+            return rooms.root;
         }
         return (
             rooms.hasOwnProperty(roomname)
@@ -94,10 +98,11 @@ function getRoom(name) {
     };
 
     room.leave = function () {
-        if (open === false) {
-            return console.warn("Cannot leave: socket is closed.");
+        if (!open) {
+            throw new Error("Cannot leave: room is closed.");
         }
         socket.send(buildMessage(name, "leave", roomID, roomID, ""));
+        return room;
     };
 
     room.parse = function (packet) {
@@ -141,10 +146,7 @@ function getRoom(name) {
         }
     };
 
-    room.clearListeners = function (exceptions) {
-        if (!Array.isArray(exceptions)) {
-            exceptions = [];
-        }
+    room.clearListeners = function (exceptions = []) {
         Object.keys(room.events).forEach(function (event) {
             if (exceptions.indexOf(event) === -1) {
                 room.removeAllListeners(event);
@@ -165,7 +167,10 @@ function getRoom(name) {
             });
         };
         room.rooms = function () {
-            return global.structuredClone(rooms);
+            if (typeof structuredClone === "function") {
+                return structuredClone(rooms);
+            }
+            return JSON.parse(JSON.stringify(rooms));
         };
     }
 
