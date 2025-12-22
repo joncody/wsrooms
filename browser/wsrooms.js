@@ -2,8 +2,8 @@
 
 import betterview from "./betterview.js";
 import emitter from "./emitter.js";
-import utils from "./utils.js";
 
+const decoder = new TextDecoder("utf-8");
 const rooms = {};
 const reserved = ["open", "close", "joined", "join", "leave", "left"];
 let socket;
@@ -107,13 +107,13 @@ function getRoom(name) {
         case "join":
             roomID = packet.src;
             members.length = 0;
-            members.push(...JSON.parse(utils.stringFromCodes(packet.payload)));
+            members.push(...JSON.parse(decoder.decode(packet.payload)));
             open = true;
             room.emit("open");
             socket.send(buildMessage(name, "joined", "", roomID, roomID));
             break;
         case "joined":
-            packet.payload = utils.stringFromCodes(packet.payload);
+            packet.payload = decoder.decode(packet.payload);
             index = members.indexOf(packet.payload);
             if (index === -1) {
                 members.push(packet.payload);
@@ -129,7 +129,7 @@ function getRoom(name) {
             delete rooms[name];
             break;
         case "left":
-            packet.payload = utils.stringFromCodes(packet.payload);
+            packet.payload = decoder.decode(packet.payload);
             index = members.indexOf(packet.payload);
             if (index !== -1) {
                 members.splice(index, 1);

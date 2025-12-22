@@ -1,8 +1,8 @@
 "use strict";
 
 import wsrooms from "./wsrooms.js";
-import utils from "./utils.js";
 
+const decoder = new TextDecoder("utf-8");
 // Connect to the server
 const root = wsrooms("ws://localhost:8080/ws");
 
@@ -15,7 +15,7 @@ root.on("open", () => {
         lobby.send("chat", "Hello, planet!");
     });
     lobby.on("chat", (payload, senderId) => {
-        console.log(senderId, "says:", utils.stringFromCodes(payload));
+        console.log(senderId, "says:", decoder.decode(payload));
     });
 
     // Send a message

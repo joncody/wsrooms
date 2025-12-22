@@ -28,7 +28,7 @@ go get github.com/joncody/wsrooms
 
 ### Client (JavaScript)
 
-Copy `wsrooms.js` (and dependencies `gg.js`) into your project.
+Copy `wsrooms.js` (and dependencies `betterview.js` and `emitter.js`) into your project.
 
 ```js
 import wsrooms from './wsrooms.js';
@@ -69,8 +69,8 @@ func main() {
 "use strict";
 
 import wsrooms from "./wsrooms.js";
-import utils from "./utils.js";
 
+const decoder = new TextDecoder("utf-8");
 // Connect to the server
 const root = wsrooms("ws://localhost:8080/ws");
 
@@ -83,7 +83,7 @@ root.on("open", () => {
         lobby.send("chat", "Hello, planet!");
     });
     lobby.on("chat", (payload, senderId) => {
-        console.log(senderId, "says:", utils.stringFromCodes(payload));
+        console.log(senderId, "says:", decoder.decode(payload));
     });
 
     // Send a message
