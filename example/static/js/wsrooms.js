@@ -43,7 +43,7 @@ function getRoom(name) {
     let roomID = "";
 
     if (typeof name !== "string") {
-        return console.warn("Room name must be a string");
+        throw new TypeError("Room name must be a string");
     }
     if (rooms.hasOwnProperty(name)) {
         return rooms[name];
@@ -181,7 +181,7 @@ const wsrooms = function (url) {
     const root = getRoom("root");
 
     if (typeof url !== "string") {
-        return console.warn("WebSocket URL must be a string.");
+        throw new TypeError("WebSocket URL must be a string.");
     }
     socket = new WebSocket(url);
     socket.binaryType = "arraybuffer";
@@ -197,7 +197,8 @@ const wsrooms = function (url) {
         };
 
         if (!rooms.hasOwnProperty(packet.room)) {
-            return console.warn("Room " + packet.room + " does not exist.");
+            console.warn("Room " + packet.room + " does not exist.");
+            return;
         }
         rooms[packet.room].parse(packet);
     };
