@@ -3,8 +3,12 @@
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8");
 
+function objectType(obj) {
+    return Object.prototype.toString.call(obj).slice(8, -1).toLowerCase();
+}
+
 const bytecursor = function (buffer, viewOffset = 0, viewLength = undefined) {
-    if (!(buffer instanceof ArrayBuffer)) {
+    if (objectType(buffer) !== "arraybuffer") {
         throw new TypeError("bytecursor requires an ArrayBuffer");
     }
     const view = new DataView(
@@ -36,7 +40,7 @@ const bytecursor = function (buffer, viewOffset = 0, viewLength = undefined) {
             throw new RangeError("Offset + size exceeds view bounds");
         }
     }
-    
+
     function advance(size) {
         const pos = cursor;
         check(pos, size); // Ensure we're not going out of bounds
@@ -80,7 +84,7 @@ const bytecursor = function (buffer, viewOffset = 0, viewLength = undefined) {
     api.slice = function (start = 0, end = view.byteLength) {
         return buffer.slice(view.byteOffset + start, view.byteOffset + end);
     };
-    
+
     api.getBytes = function (len = view.byteLength - cursor) {
         const pos = advance(len);
         return new Uint8Array(
@@ -92,7 +96,7 @@ const bytecursor = function (buffer, viewOffset = 0, viewLength = undefined) {
     };
 
     api.writeBytes = function (bytes) {
-        if (!(bytes instanceof Uint8Array)) {
+        if (objectType(bytes) !== "uint8array") {
             throw new TypeError("writeBytes requires a Uint8Array");
         }
         const pos = advance(bytes.byteLength);
@@ -166,7 +170,7 @@ const bytecursor = function (buffer, viewOffset = 0, viewLength = undefined) {
         view.setUint16(advance(2), v, littleEndian);
         return api;
     };
-    
+
     api.writeInt16 = function (v, littleEndian = false) {
         view.setInt16(advance(2), v, littleEndian);
         return api;
@@ -198,16 +202,16 @@ const bytecursor = function (buffer, viewOffset = 0, viewLength = undefined) {
 
     Object.defineProperties(api, {
         "buffer": {
-            value: buffer,
             enumerable: true,
-        },
-        "view": {
-            value: view,
-            enumerable: true,
+            value: buffer
         },
         "length": {
-            value: view.byteLength,
-            enumerable: true
+            enumerable: true,
+            value: view.byteLength
+        },
+        "view": {
+            enumerable: true,
+            value: view
         }
     });
 

@@ -14,7 +14,7 @@ const emitter = function (value) {
         if (!Array.isArray(list)) {
             return false;
         }
-        list.forEach((fn) => {
+        list.forEach(function (fn) {
             fn.apply(api, args);
         });
         return true;
@@ -49,16 +49,22 @@ const emitter = function (value) {
         if (!Array.isArray(list) || typeof listener !== "function") {
             return api;
         }
-        const index = list.findIndex((v) => {
+        const index = list.findIndex(function (v) {
             return v === listener || (v.listener && v.listener === listener);
         });
         if (index >= 0) {
+            const removed = list[index];
             list.splice(index, 1);
             if (list.length === 0) {
                 delete events[type];
             }
             if (events.removeListener) {
-                api.emit("removeListener", type, listener);
+                const reported = (
+                    removed.listener && typeof removed.listener === "function"
+                    ? removed.listener
+                    : removed
+                );
+                api.emit("removeListener", type, reported);
             }
         }
         return api;
@@ -69,7 +75,7 @@ const emitter = function (value) {
         if (typeof listener !== "function") {
             return api;
         }
-        const onetime = (...args) => {
+        const onetime = function (...args) {
             api.removeListener(type, onetime);
             listener.apply(api, args);
         };
@@ -81,9 +87,11 @@ const emitter = function (value) {
         if (!type) {
             if (!events.removeListener) {
                 // Fast path: no removeListener events, delete all keys directly
-                Object.keys(events).forEach((key) => delete events[key]);
+                Object.keys(events).forEach(function (key) {
+                    delete events[key];
+                });
             } else {
-                Object.keys(events).forEach((key) => {
+                Object.keys(events).forEach(function (key) {
                     if (key !== "removeListener") {
                         api.removeAllListeners(key);
                     }
@@ -94,7 +102,7 @@ const emitter = function (value) {
         }
         const list = events[type];
         if (Array.isArray(list)) {
-            list.forEach((fn) => {
+            list.forEach(function (fn) {
                 api.removeListener(type, fn);
             });
         }
@@ -107,8 +115,6 @@ const emitter = function (value) {
         }
         return Object.values(events).flat();
     };
-
-    api.events = events;
 
     return Object.assign(em, api);
 };
