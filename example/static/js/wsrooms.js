@@ -129,7 +129,7 @@ function getRoom(name) {
             socket.send(buildMessage(name, "left", "", roomID, roomID));
             room.emit("close");
             open = false;
-            members.length = 0;;
+            members.length = 0;
             roomID = "";
             delete rooms[name];
             break;
