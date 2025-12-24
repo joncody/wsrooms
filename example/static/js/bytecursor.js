@@ -7,9 +7,44 @@ function objectType(obj) {
     return Object.prototype.toString.call(obj).slice(8, -1).toLowerCase();
 }
 
+function assertInteger(value, min, max, name) {
+    if (typeof value !== "number") {
+        throw new TypeError(`${name} must be a number`);
+    }
+    if (!Number.isInteger(value)) {
+        throw new TypeError(`${name} must be an integer`);
+    }
+    if (value < min || value > max) {
+        throw new RangeError(`${name} must be between ${min} and ${max}`);
+    }
+}
+
 const bytecursor = function (buffer, viewOffset = 0, viewLength = undefined) {
+    // Validate buffer
     if (objectType(buffer) !== "arraybuffer") {
-        throw new TypeError("bytecursor requires an ArrayBuffer");
+        throw new TypeError("requires an ArrayBuffer");
+    }
+    // Validate viewOffset
+    if (typeof viewOffset !== "number") {
+        throw new TypeError("viewOffset must be a number");
+    }
+    if (!Number.isInteger(viewOffset) || viewOffset < 0) {
+        throw new RangeError("viewOffset must be a non-negative integer");
+    }
+    if (viewOffset > buffer.byteLength) {
+        throw new RangeError("viewOffset is out of bounds");
+    }
+    // Validate viewLength (if provided)
+    if (viewLength !== undefined) {
+        if (typeof viewLength !== "number") {
+            throw new TypeError("viewLength must be a number");
+        }
+        if (!Number.isInteger(viewLength) || viewLength < 0) {
+            throw new RangeError("viewLength must be a non-negative integer");
+        }
+        if (viewOffset + viewLength > buffer.byteLength) {
+            throw new RangeError("viewOffset + viewLength exceeds buffer size");
+        }
     }
     const view = new DataView(
         buffer,
@@ -43,9 +78,9 @@ const bytecursor = function (buffer, viewOffset = 0, viewLength = undefined) {
 
     function advance(size) {
         const pos = cursor;
-        check(pos, size); // Ensure we're not going out of bounds
-        cursor += size;   // Move the cursor forward by `size`
-        return pos;       // Return the previous position
+        check(pos, size);
+        cursor += size;
+        return pos;
     }
 
     // -------------------------------------------------------------------------
@@ -82,6 +117,18 @@ const bytecursor = function (buffer, viewOffset = 0, viewLength = undefined) {
     // -------------------------------------------------------------------------
 
     api.slice = function (start = 0, end = view.byteLength) {
+        if (typeof start !== "number" || typeof end !== "number") {
+            throw new TypeError("slice() arguments must be numbers");
+        }
+        if (start < 0 || end < 0) {
+            throw new RangeError("slice() start and end must be non-negative");
+        }
+        if (start > end) {
+            throw new RangeError("slice() start must not exceed end");
+        }
+        if (end > view.byteLength) {
+            throw new RangeError("slice() end exceeds view bounds");
+        }
         return buffer.slice(view.byteOffset + start, view.byteOffset + end);
     };
 
@@ -117,81 +164,78 @@ const bytecursor = function (buffer, viewOffset = 0, viewLength = undefined) {
     };
 
     api.writeString = function (string) {
+        if (typeof string !== "string") {
+            throw new TypeError("writeString() requires a string");
+        }
         return api.writeBytes(encoder.encode(string));
     };
 
     // -------------------------------------------------------------------------
-    // Numbers
+    // Numbers — Getters
     // -------------------------------------------------------------------------
 
-    api.getUint8 = function () {
-        return view.getUint8(advance(1));
-    };
+    api.getUint8 = () => view.getUint8(advance(1));
+    api.getInt8 = () => view.getInt8(advance(1));
+    api.getUint16 = (littleEndian = false) => view.getUint16(advance(2), littleEndian);
+    api.getInt16 = (littleEndian = false) => view.getInt16(advance(2), littleEndian);
+    api.getUint32 = (littleEndian = false) => view.getUint32(advance(4), littleEndian);
+    api.getInt32 = (littleEndian = false) => view.getInt32(advance(4), littleEndian);
+    api.getFloat32 = (littleEndian = false) => view.getFloat32(advance(4), littleEndian);
+    api.getFloat64 = (littleEndian = false) => view.getFloat64(advance(8), littleEndian);
 
-    api.getInt8 = function () {
-        return view.getInt8(advance(1));
-    };
-
-    api.getUint16 = function (littleEndian = false) {
-        return view.getUint16(advance(2), littleEndian);
-    };
-
-    api.getInt16 = function (littleEndian = false) {
-        return view.getInt16(advance(2), littleEndian);
-    };
-
-    api.getUint32 = function (littleEndian = false) {
-        return view.getUint32(advance(4), littleEndian);
-    };
-
-    api.getInt32 = function (littleEndian = false) {
-        return view.getInt32(advance(4), littleEndian);
-    };
-
-    api.getFloat32 = function (littleEndian = false) {
-        return view.getFloat32(advance(4), littleEndian);
-    };
-
-    api.getFloat64 = function (littleEndian = false) {
-        return view.getFloat64(advance(8), littleEndian);
-    };
+    // -------------------------------------------------------------------------
+    // Numbers — Writers (with strict validation)
+    // -------------------------------------------------------------------------
 
     api.writeUint8 = function (v) {
+        assertInteger(v, 0, 255, "Uint8 value");
         view.setUint8(advance(1), v);
         return api;
     };
 
     api.writeInt8 = function (v) {
+        assertInteger(v, -128, 127, "Int8 value");
         view.setInt8(advance(1), v);
         return api;
     };
 
     api.writeUint16 = function (v, littleEndian = false) {
+        assertInteger(v, 0, 65535, "Uint16 value");
         view.setUint16(advance(2), v, littleEndian);
         return api;
     };
 
     api.writeInt16 = function (v, littleEndian = false) {
+        assertInteger(v, -32768, 32767, "Int16 value");
         view.setInt16(advance(2), v, littleEndian);
         return api;
     };
 
     api.writeUint32 = function (v, littleEndian = false) {
+        assertInteger(v, 0, 4294967295, "Uint32 value");
         view.setUint32(advance(4), v, littleEndian);
         return api;
     };
 
     api.writeInt32 = function (v, littleEndian = false) {
+        assertInteger(v, -2147483648, 2147483647, "Int32 value");
         view.setInt32(advance(4), v, littleEndian);
         return api;
     };
 
+    // Floats: allow NaN, Infinity, etc. — just require "number"
     api.writeFloat32 = function (v, littleEndian = false) {
+        if (typeof v !== "number") {
+            throw new TypeError("Float32 value must be a number");
+        }
         view.setFloat32(advance(4), v, littleEndian);
         return api;
     };
 
     api.writeFloat64 = function (v, littleEndian = false) {
+        if (typeof v !== "number") {
+            throw new TypeError("Float64 value must be a number");
+        }
         view.setFloat64(advance(8), v, littleEndian);
         return api;
     };
