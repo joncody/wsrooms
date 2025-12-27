@@ -18,7 +18,7 @@ type Conn struct {
 	Rooms  map[string]struct{}
 }
 
-type CookieReader func(*http.Request) map[string]string
+type Authorize func(*http.Request) (map[string]string, error)
 
 const (
 	writeWait      = 10 * time.Second
@@ -187,7 +187,7 @@ func (c *Conn) Emit(msg *Message) {
 	}
 }
 
-func NewConnection(w http.ResponseWriter, r *http.Request, cr CookieReader) *Conn {
+func NewConnection(w http.ResponseWriter, r *http.Request, cookie map[string]string) *Conn {
 	socket, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return nil
@@ -196,27 +196,33 @@ func NewConnection(w http.ResponseWriter, r *http.Request, cr CookieReader) *Con
 	if err != nil {
 		return nil
 	}
-	c := &Conn{
+	return &Conn{
 		Socket: socket,
 		ID:     id.String(),
 		Send:   make(chan []byte, 256),
 		Rooms:  make(map[string]struct{}),
+        Cookie: cookie,
 	}
-	if cr != nil {
-		c.Cookie = cr(r)
-	}
-	Hub.AddConn(c)
-	return c
 }
 
-func SocketHandler(cr CookieReader) http.HandlerFunc {
+func SocketHandler(authFn Authorize) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "GET" {
-			http.Error(w, "Method not allowed", 405)
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		c := NewConnection(w, r, cr)
+        var cookie map[string]string
+        if authFn != nil {
+            var err error
+            cookie, err = authFn(r)
+            if err != nil {
+                http.Error(w, "Unauthorized", http.StatusUnauthorized)
+                return
+            }
+        }
+		c := NewConnection(w, r, cookie)
 		if c != nil {
+            Hub.AddConn(c)
 			go c.writePump()
 			c.Join("root")
 			go c.readPump()
