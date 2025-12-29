@@ -5,40 +5,60 @@ import (
 	"encoding/binary"
 )
 
+// Message represents a length-prefixed message
 type Message struct {
-	RoomLength    int    // room name length
-	Room          string // room name
-	EventLength   int    // event name length
-	Event         string // event name
-	DstLength     int    // destination id length
-	Dst           string // destination id
-	SrcLength     int    // source id length
-	Src           string // source id
-	PayloadLength int    // payload length
-	Payload       []byte // payload
+	RoomLength    int
+	Room          string
+	EventLength   int
+	Event         string
+	DstLength     int
+	Dst           string
+	SrcLength     int
+	Src           string
+	PayloadLength int
+	Payload       []byte
 }
 
-type RoomMessage struct {
-	Sender *Conn
-	Data   []byte
+// readString reads a length-prefixed string from a buffer
+func readString(buf *bytes.Buffer) (string, int) {
+	if buf.Len() < 4 {
+		return "", 0
+	}
+	length := int(binary.BigEndian.Uint32(buf.Next(4)))
+	if length < 0 || buf.Len() < length {
+		return "", 0
+	}
+	return string(buf.Next(length)), length
 }
 
+// readPayload reads a length-prefixed byte slice from a buffer
+func readPayload(buf *bytes.Buffer) ([]byte, int) {
+	if buf.Len() < 4 {
+		return nil, 0
+	}
+	length := int(binary.BigEndian.Uint32(buf.Next(4)))
+	if length < 0 || buf.Len() < length {
+		return nil, 0
+	}
+	return buf.Next(length), length
+}
+
+// BytesToMessage decodes bytes into a Message
 func BytesToMessage(data []byte) *Message {
+	if len(data) < 24 {
+		return nil
+	}
 	buf := bytes.NewBuffer(data)
 	msg := &Message{}
-	msg.RoomLength = int(binary.BigEndian.Uint32(buf.Next(4)))
-	msg.Room = string(buf.Next(msg.RoomLength))
-	msg.EventLength = int(binary.BigEndian.Uint32(buf.Next(4)))
-	msg.Event = string(buf.Next(msg.EventLength))
-	msg.DstLength = int(binary.BigEndian.Uint32(buf.Next(4)))
-	msg.Dst = string(buf.Next(msg.DstLength))
-	msg.SrcLength = int(binary.BigEndian.Uint32(buf.Next(4)))
-	msg.Src = string(buf.Next(msg.SrcLength))
-	msg.PayloadLength = int(binary.BigEndian.Uint32(buf.Next(4)))
-	msg.Payload = buf.Next(msg.PayloadLength)
+	msg.Room, msg.RoomLength = readString(buf)
+	msg.Event, msg.EventLength = readString(buf)
+	msg.Dst, msg.DstLength = readString(buf)
+	msg.Src, msg.SrcLength = readString(buf)
+	msg.Payload, msg.PayloadLength = readPayload(buf)
 	return msg
 }
 
+// Bytes serializes a Message into bytes
 func (msg *Message) Bytes() []byte {
 	buf := bytes.NewBuffer([]byte{})
 	binary.Write(buf, binary.BigEndian, uint32(msg.RoomLength))
@@ -54,6 +74,7 @@ func (msg *Message) Bytes() []byte {
 	return buf.Bytes()
 }
 
+// ConstructMessage builds a new Message
 func ConstructMessage(room, event, dst, src string, payload []byte) *Message {
 	return &Message{
 		RoomLength:    len(room),
@@ -68,3 +89,4 @@ func ConstructMessage(room, event, dst, src string, payload []byte) *Message {
 		Payload:       payload,
 	}
 }
+

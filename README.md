@@ -1,34 +1,33 @@
 # `wsrooms` – Room-Based WebSocket Framework
 
-A high-performance, event-driven WebSocket framework for Go and JavaScript.
-
-**wsrooms** provides a robust infrastructure for building real-time applications. It features automatic room management, binary message framing for speed, a built-in event emitter on the server, and a simple client-side API. It handles the heavy lifting of connection tracking, broadcasting, and direct messaging so you can focus on application logic.
+A lightweight, high-performance WebSocket framework for real-time applications in Go (server) and JavaScript (client). Built around **rooms**, **binary framing**, and **explicit message routing**, `wsrooms` handles connection lifecycle, room membership, and concurrency so you don’t have to.
 
 ---
 
-## ✅ Features
+## ✅ Key Features
 
-- 🏢 **Room System:** Automatic creation, joining, and leaving of rooms.
-- ⚡ **Binary Protocol:** Custom binary framing using `betterview` for minimal overhead.
-- 📨 **Direct Messaging:** Send messages to specific peers or broadcast to rooms.
-- 👂 **Server-Side Emitter:** Node.js-style event listeners in Go (`On`, `Emit`).
-- 🔄 **State Synchronization:** Clients automatically track room membership state.
-- 🔒 **Concurrency Safe:** Built with Go's `sync.Mutex` and channels for thread safety.
-- 📦 **Full Stack:** Includes both Go server handler and JavaScript client library.
+- 🏢 **Automatic Room Management**: Create/join/leave rooms on demand.
+- ⚡ **Efficient Binary Protocol**: Uses `bytecursor` for compact, fast message encoding.
+- 📨 **Flexible Messaging**: Broadcast to rooms or send direct messages to peers.
+- 🔒 **Concurrency-Safe**: Thread-safe rooms and hub using Go’s `sync` primitives.
+- 🧩 **Handler Registration**: Register per-event logic on the server with `Registerandler`.
+- 🌐 **Single Root Connection**: Clients start in a `"root"` room and dynamically join others.
+- 📦 **Minimal Dependencies**: Only `gorilla/websocket` (Go) and `bytecursor`/`emitter` (JS).
 
 ---
 
 ## 📦 Installation
 
-### Server (Go)
-
+### Go Server
 ```bash
 go get github.com/joncody/wsrooms
 ```
 
-### Client (JavaScript)
-
-Copy `wsrooms.js` (and dependencies `betterview.js` and `emitter.js`) into your project.
+### JavaScript Client
+Include these files in your frontend:
+- `wsrooms.js`
+- `bytecursor.js`
+- `emitter.js`
 
 ```js
 import wsrooms from './wsrooms.js';
@@ -36,151 +35,143 @@ import wsrooms from './wsrooms.js';
 
 ---
 
-## 🧠 Quick Examples
+## 🧠 Quick Start
 
-### 1. Server Setup (Go)
-
+### 1. Go Server
 ```go
 package main
 
 import (
+	"log"
 	"net/http"
 	"github.com/joncody/wsrooms"
 )
 
 func main() {
-    // Register event listeners
-    wsrooms.Emitter.On("chat", func(c *wsrooms.Conn, msg *wsrooms.Message) {
-        // Broadcast the message back to the room the client sent it to
-        c.Emit(msg) 
-    })
+	// Register custom event handler
+	err := wsrooms.RegisterHandler("chat", func(c *wsrooms.Conn, msg *wsrooms.Message) error {
+		// Re-broadcast to the message's room
+		c.SendToRoom(msg.Room, "chat", msg.Payload)
+		return nil
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
 
-    // Mount the WebSocket handler
-    http.HandleFunc("/ws", wsrooms.SocketHandler(nil))
-    
-    // Start server
-    http.ListenAndServe(":8080", nil)
+	http.HandleFunc("/ws", wsrooms.SocketHandler(nil))
+	http.ListenAndServe(":8080", nil)
 }
 ```
 
-### 2. Client Usage (JavaScript)
-
+### 2. JavaScript Client
 ```js
 "use strict";
 
 import wsrooms from "./wsrooms.js";
 
-const decoder = new TextDecoder("utf-8");
-// Connect to the server
+const decoder = new TextDecoder();
 const root = wsrooms("ws://localhost:8080/ws");
 
-// Listen for connection success
 root.on("open", () => {
     console.log("Joined Lobby! My ID:", root.id());
-    const lobby = root.join("lobby");
-
-    lobby.on("open", () => {
-        lobby.send("chat", "Hello, planet!");
+	const lobby = root.join("lobby");
+	lobby.on("open", () => {
+		lobby.send("chat", "Hello room!");
+	});
+	lobby.on("chat", (payload, senderId) => {
+		console.log(`${senderId}: ${decoder.decode(payload)}`);
+	});
+	lobby.on("new_member", (id) => {
+        console.log(`User joined: ${id}`);
+	});
+    lobby.on("member_left", (id) => {
+        console.log(`User left: ${id}`);
     });
-    lobby.on("chat", (payload, senderId) => {
-        console.log(senderId, "says:", decoder.decode(payload));
-    });
-
-    // Send a message
-    root.send("chat", "Hello World!");
 });
-
-// Listen for messages
-root.on("chat", (payload, senderId) => {
-    console.log(senderId, "says:", payload);
-});
-
 ```
 
 ---
 
-## 📚 Client API (JavaScript)
+## 📚 Client API (`wsrooms.js`)
 
-### 🟢 Initialization
-
-| Function | Description |
-|----------|-------------|
-| `wsrooms(url)` | Connects to the WebSocket URL and returns the `root` room instance. |
-
-### 🏢 Room Methods
-
-Every instance returned by `join()` is a Room object.
-
-| Function | Description |
-|----------|-------------|
-| `join(roomName)` | Joins a new room. Returns a new `Room` object. |
-| `leave()` | Leaves the current room and closes listeners. |
-| `send(event, payload, [dst])` | Sends a message. `dst` is optional (for DM). |
-| `open()` | Returns `true` if currently joined to the room. |
-| `members()` | Returns an array of member IDs in the room. |
-| `id()` | Returns your unique Client ID in this room. |
-
-### ⚡ Events
-
-Listen to events using `.on(event, handler)`.
-
-| Event | Payload | Description |
-|-------|---------|-------------|
-| `open` | *(none)* | Fired when successfully joined. |
-| `close` | *(none)* | Fired when leaving the room. |
-| `joined` | `memberId` | Fired when a new user joins the room. |
-| `left` | `memberId` | Fired when a user leaves the room. |
-| *(custom)* | `payload, src` | Fired when receiving custom messages (e.g., "chat"). |
-
----
-
-## 📚 Server API (Go)
-
-### ⚙️ Core
-
-| Function | Description |
-|----------|-------------|
-| `SocketHandler(CookieReader)` | Returns an `http.HandlerFunc`. Takes an optional function to parse cookies into the connection. |
-| `Emitter.On(event, handler)` | Registers a listener for incoming messages. Handler signature: `func(c *Conn, msg *Message)`. |
-
-### 🔌 Connection (`*Conn`)
-
-| Function | Description |
-|----------|-------------|
-| `Join(roomName)` | Adds the connection to a room. |
-| `Leave(roomName)` | Removes the connection from a room. |
-| `Emit(msg)` | Broadcasts a message to the room specified in the message structure. |
-| `ID` | The unique UUID of the connection. |
-
-### 📨 Message (`*Message`)
-
-Helper to construct messages for sending.
-
-```go
-// ConstructMessage(room, event, dst, src, payload)
-msg := wsrooms.ConstructMessage("Lobby", "alert", "", "server", []byte("System Message"))
+### Initialization
+```js
+const root = wsrooms("ws://...");
 ```
+Returns the `root` room. All other rooms are created via `.join()`.
+
+### Room Methods
+| Method | Description |
+|--------|-------------|
+| `.join(name)` | Joins a room; returns a frozen `Room` object. |
+| `.leave()` | Leaves the room and cleans up listeners. |
+| `.send(event, payload, [dst])` | Sends a message (to room or direct to `dst`). |
+| `.open()` | `true` if the room is active. |
+| `.members()` | Returns a deep copy of current member IDs. |
+| `.id()` | Returns your client ID in this room. |
+
+### Events
+Use `.on(event, handler)` to listen:
+- `"open"` — room joined successfully
+- `"close"` — room left or connection closed
+- `"new_member"` — `(memberId)` when someone joins
+- `"member_left"` — `(memberId)` when someone leaves
+- Custom events (e.g., `"chat"`) — `(payload, senderId)`
+
+> ⚠️ Reserved event names (`join`, `leave`, etc.) cannot be used for custom messages.
 
 ---
 
-## 📐 Protocol
+## 📚 Server API (`wsrooms` Go package)
 
-Messages are packed into a binary format to reduce bandwidth.
+### Core Functions
+| Function | Description |
+|--------|-------------|
+| `RegisterHandler(event string, handler func(*Conn, *Message) error)` | Registers a custom message handler. Returns error if duplicate or invalid. |
+| `SocketHandler(auth Authorize)` | Returns an `http.HandlerFunc`. Optional `auth` function extracts claims from request. |
 
-**Structure:**
-1.  `uint32` Room Name Length
-2.  `string` Room Name
-3.  `uint32` Event Name Length
-4.  `string` Event Name
-5.  `uint32` Destination ID Length
-6.  `string` Destination ID
-7.  `uint32` Source ID Length
-8.  `string` Source ID
-9.  `uint32` Payload Length
-10. `bytes` Payload
+### `*Conn` Methods
+| Method | Description |
+|--------|-------------|
+| `SendToRoom(room, event string, payload []byte)` | Broadcasts to all room members except sender. |
+| `SendToClient(dstID, event string, payload []byte)` | Sends direct message to a specific client. |
+| `ID` | Unique connection UUID (read-only field). |
+| `Claims` | Map of auth claims (e.g., from JWT). |
+
+### Message Utilities
+| Function | Description |
+|--------|-------------|
+| `ConstructMessage(room, event, dst, src string, payload []byte) *Message` | Builds a message struct. |
+| `BytesToMessage([]byte) *Message` | Decodes binary message (used internally). |
+
+> The server **automatically** handles `"join"`/`"leave"` events. Custom events are routed to registered handlers or broadcast if unhandled.
+
+---
+
+## 📐 Message Protocol (Binary)
+
+Each message is a sequence of **length-prefixed** fields (big-endian `uint32`):
+
+1. Room name (`string`)
+2. Event name (`string`)
+3. Destination ID (`string`, empty = broadcast)
+4. Source ID (`string`)
+5. Payload (`[]byte`)
+
+Example:  
+`[4][lobby][4][chat][0][][36][abc...][11][Hello room!]`
+
+---
+
+## 🛡️ Concurrency & Safety
+
+- All room operations are **goroutine-safe**.
+- Connections use buffered channels + ping/pong to prevent hangs.
+- Rooms auto-clean when empty.
+- Malformed or oversized messages are dropped.
 
 ---
 
 ## 📄 License
 
-See the [LICENSE](./LICENSE) file for details.
+See [LICENSE](./LICENSE)

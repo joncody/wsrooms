@@ -6,118 +6,124 @@ import (
 	"sync"
 )
 
+type RoomMessage struct {
+	Sender *Conn
+	Data   []byte
+}
+
 type Room struct {
-	sync.Mutex
 	Name       string
-	Members    map[string]struct{}
-	destroy    chan bool
+	members    map[string]*Conn
 	register   chan *Conn
 	unregister chan *Conn
-	Send       chan *RoomMessage
+	send       chan *RoomMessage
+	stop       chan struct{}
+	stopOnce   sync.Once
+	mu         sync.Mutex
 }
 
-func (r *Room) getMembers() []string {
-	r.Lock()
-	defer r.Unlock()
-	members := make([]string, 0)
-	for id := range r.Members {
-		members = append(members, id)
-	}
-	return members
+// Join queues a connection to join
+func (r *Room) Join(c *Conn) {
+	r.register <- c
 }
 
-func (r *Room) handleJoin(c *Conn) {
-	members := r.getMembers()
-	r.Lock()
-	r.Members[c.ID] = struct{}{}
-	r.Unlock()
-	payload, err := json.Marshal(members)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	c.Send <- ConstructMessage(r.Name, "join", "", c.ID, payload).Bytes()
+// Leave queues a connection to leave
+func (r *Room) Leave(c *Conn) {
+	r.unregister <- c
 }
 
-func (r *Room) handleLeave(c *Conn) {
-	r.Lock()
-	defer func() {
-		r.Unlock()
-		r.Stop()
-	}()
-	if _, ok := r.Members[c.ID]; ok {
-		delete(r.Members, c.ID)
-		c.Send <- ConstructMessage(r.Name, "leave", "", c.ID, []byte(c.ID)).Bytes()
+// Emit queues a message to all room members
+func (r *Room) Emit(c *Conn, msg *Message) {
+	r.send <- &RoomMessage{c, msg.Bytes()}
+}
+
+func (r *Room) snapshot() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	ids := make([]string, 0, len(r.members))
+	for id := range r.members {
+		ids = append(ids, id)
 	}
+	return ids
 }
 
 func (r *Room) broadcast(msg *RoomMessage) {
-	members := r.getMembers()
-	for _, id := range members {
-		if id == msg.Sender.ID {
-			continue
+	r.mu.Lock()
+	members := make([]*Conn, 0, len(r.members))
+	for id, c := range r.members {
+		if id != msg.Sender.ID {
+			members = append(members, c)
 		}
-		c, ok := Hub.GetConn(id)
-		if !ok {
-			continue
-		}
+	}
+	r.mu.Unlock()
+
+	for _, c := range members {
 		select {
 		case c.Send <- msg.Data:
 		default:
-			r.Lock()
-			delete(r.Members, id)
-			r.Unlock()
-			close(c.Send)
+			log.Printf("Room %s: member %s is slow or disconnected, removing", r.Name, c.ID)
+			r.Leave(c)
+			c.cleanup()
 		}
 	}
 }
 
-func (r *Room) cleanup() {
-	Hub.RemoveRoom(r.Name)
+func (r *Room) handleJoin(c *Conn) {
+	r.mu.Lock()
+	r.members[c.ID] = c
+	r.mu.Unlock()
+
+	members, err := json.Marshal(r.snapshot())
+	if err != nil {
+		log.Println("Error marshalling room members:", err)
+		return
+	}
+	c.Send <- ConstructMessage(r.Name, "join_ack", "", c.ID, members).Bytes()
+	r.Emit(c, ConstructMessage(r.Name, "new_member", "", "", []byte(c.ID)))
 }
 
-func (r *Room) Start() {
+func (r *Room) handleLeave(c *Conn) {
+	r.mu.Lock()
+	delete(r.members, c.ID)
+	empty := len(r.members) == 0
+	r.mu.Unlock()
+
+	c.Send <- ConstructMessage(r.Name, "leave_ack", "", c.ID, []byte(c.ID)).Bytes()
+	r.Emit(c, ConstructMessage(r.Name, "member_left", "", "", []byte(c.ID)))
+
+	if empty {
+		r.stopOnce.Do(func() {
+			close(r.stop)
+		})
+	}
+}
+
+func (r *Room) run() {
 	for {
 		select {
 		case c := <-r.register:
 			r.handleJoin(c)
 		case c := <-r.unregister:
 			r.handleLeave(c)
-		case msg := <-r.Send:
+		case msg := <-r.send:
 			r.broadcast(msg)
-		case <-r.destroy:
-			r.cleanup()
+		case <-r.stop:
+			Hub.RemoveRoom(r.Name)
 			return
 		}
 	}
 }
 
-func (r *Room) Stop() {
-	r.destroy <- true
-}
-
-func (r *Room) Join(c *Conn) {
-	r.register <- c
-}
-
-func (r *Room) Leave(c *Conn) {
-	r.unregister <- c
-}
-
-func (r *Room) Emit(c *Conn, msg *Message) {
-	r.Send <- &RoomMessage{c, msg.Bytes()}
-}
-
+// NewRoom creates and runs a new room
 func NewRoom(name string) *Room {
 	r := &Room{
 		Name:       name,
-		Members:    make(map[string]struct{}),
-		destroy:    make(chan bool, 1),
+		members:    make(map[string]*Conn),
 		register:   make(chan *Conn, 16),
 		unregister: make(chan *Conn, 16),
-		Send:       make(chan *RoomMessage, 64),
+		send:       make(chan *RoomMessage, 64),
+		stop:       make(chan struct{}),
 	}
-	Hub.AddRoom(r)
-	go r.Start()
+	go r.run()
 	return r
 }

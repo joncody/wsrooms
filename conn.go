@@ -1,21 +1,23 @@
 package wsrooms
 
 import (
-	"github.com/chuckpreslar/emission"
-	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
+	"fmt"
+	"log"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 )
 
+type MessageHandler func(c *Conn, msg *Message) error
+
 type Conn struct {
-	sync.Mutex
-	Cookie map[string]string
 	Socket *websocket.Conn
 	ID     string
 	Send   chan []byte
-	Rooms  map[string]struct{}
+	Claims map[string]string
 }
 
 type Authorize func(*http.Request) (map[string]string, error)
@@ -24,40 +26,46 @@ const (
 	writeWait      = 10 * time.Second
 	pongWait       = 60 * time.Second
 	pingPeriod     = pongWait * 9 / 10
-	maxMessageSize = 1024 * 1024 * 1024
+	maxMessageSize = 65536
 )
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  4096,
-	WriteBufferSize: 4096,
-	CheckOrigin:     func(r *http.Request) bool { return true },
-}
+var (
+	messageHandlersMu sync.RWMutex
+	messageHandlers   = make(map[string]MessageHandler)
+    upgrader = websocket.Upgrader{
+        ReadBufferSize:  4096,
+        WriteBufferSize: 4096,
+        CheckOrigin:     func(r *http.Request) bool { return true },
+    }
+)
 
-var Emitter = emission.NewEmitter()
-
-func (c *Conn) getRooms() []string {
-	c.Lock()
-	defer c.Unlock()
-	rooms := make([]string, 0)
-	for name := range c.Rooms {
-		rooms = append(rooms, name)
+// RegisterHandler registers a custom event handler
+func RegisterHandler(event string, handler MessageHandler) error {
+	if event == "" {
+		return fmt.Errorf("event name cannot be empty")
 	}
-	return rooms
+	if handler == nil {
+		return fmt.Errorf("handler cannot be nil")
+	}
+	messageHandlersMu.Lock()
+	defer messageHandlersMu.Unlock()
+	if _, exists := messageHandlers[event]; exists {
+		return fmt.Errorf("handler for event %q already registered", event)
+	}
+	messageHandlers[event] = handler
+	return nil
 }
 
-func (c *Conn) handleLeave(msg *Message) {
-	if room, exists := Hub.GetRoom(msg.Room); exists {
-		room.Lock()
-		defer room.Unlock()
-		delete(room.Members, c.ID)
-		if len(room.Members) == 0 {
-			room.Stop()
-		}
+func (c *Conn) SendToRoom(roomName, event string, payload []byte) {
+	msg := ConstructMessage(roomName, event, "", c.ID, payload)
+	if room, ok := Hub.GetRoom(roomName); ok {
+		room.Emit(c, msg)
 	}
 }
 
-func (c *Conn) handleDirectMessage(msg *Message) {
-	if dst, exists := Hub.GetConn(msg.Dst); exists {
+func (c *Conn) SendToClient(dstID, event string, payload []byte) {
+	msg := ConstructMessage("", event, dstID, c.ID, payload)
+	if dst, ok := Hub.GetConn(dstID); ok {
 		dst.Send <- msg.Bytes()
 	}
 }
@@ -65,49 +73,42 @@ func (c *Conn) handleDirectMessage(msg *Message) {
 func (c *Conn) HandleData(msg *Message) {
 	switch msg.Event {
 	case "join":
-		c.Join(msg.Room)
+		Hub.JoinRoom(msg.Room, c)
 	case "leave":
-		c.Leave(msg.Room)
+		Hub.LeaveRoom(msg.Room, c)
 	case "joined", "left":
-		c.Emit(msg)
-		if msg.Event == "left" {
-			c.handleLeave(msg)
-		}
+		return
 	default:
 		if msg.Dst != "" {
-			c.handleDirectMessage(msg)
-		} else if Emitter.GetListenerCount(msg.Event) > 0 {
-			Emitter.Emit(msg.Event, c, msg)
-		} else {
-			c.Emit(msg)
+			if dst, ok := Hub.GetConn(msg.Dst); ok {
+				dst.Send <- msg.Bytes()
+			}
+			return
+		}
+		var handler MessageHandler
+		messageHandlersMu.RLock()
+		if h, exists := messageHandlers[msg.Event]; exists {
+			handler = h
+		}
+		messageHandlersMu.RUnlock()
+		if handler != nil {
+			if err := handler(c, msg); err != nil {
+				log.Printf("Handler error for event %q from conn %s: %v", msg.Event, c.ID, err)
+			}
+			return
+		}
+		if room, ok := Hub.GetRoom(msg.Room); ok {
+			room.Emit(c, msg)
 		}
 	}
 }
 
 func (c *Conn) cleanup() {
-	defer c.Socket.Close()
-	rooms := c.getRooms()
-	for _, name := range rooms {
-		if room, exists := Hub.GetRoom(name); exists {
-			room.Leave(c)
-		}
+	for _, room := range Hub.rooms {
+		room.Leave(c)
 	}
 	Hub.RemoveConn(c.ID)
-}
-
-func (c *Conn) handleError(err error) {
-	rooms := c.getRooms()
-	for _, name := range rooms {
-		if room, exists := Hub.GetRoom(name); exists {
-			room.Emit(c, ConstructMessage(name, "left", "", c.ID, []byte(c.ID)))
-			room.Lock()
-			delete(room.Members, c.ID)
-			if len(room.Members) == 0 {
-				room.Stop()
-			}
-			room.Unlock()
-		}
-	}
+	c.Socket.Close()
 }
 
 func (c *Conn) readPump() {
@@ -121,13 +122,14 @@ func (c *Conn) readPump() {
 	for {
 		_, data, err := c.Socket.ReadMessage()
 		if err != nil {
-			if _, ok := err.(*websocket.CloseError); !ok {
-				break
-			}
-			c.handleError(err)
 			break
 		}
-		c.HandleData(BytesToMessage(data))
+		msg := BytesToMessage(data)
+		if msg == nil {
+			log.Printf("Conn %s: malformed message", c.ID)
+			break
+		}
+		c.HandleData(msg)
 	}
 }
 
@@ -160,48 +162,21 @@ func (c *Conn) writePump() {
 	}
 }
 
-func (c *Conn) Join(name string) {
-	room, exists := Hub.GetRoom(name)
-	if !exists {
-		room = NewRoom(name)
-	}
-	c.Lock()
-	c.Rooms[name] = struct{}{}
-	c.Unlock()
-	room.Join(c)
-}
-
-func (c *Conn) Leave(name string) {
-	if room, exists := Hub.GetRoom(name); exists {
-		c.Lock()
-		delete(c.Rooms, name)
-		c.Unlock()
-		room.Leave(c)
-
-	}
-}
-
-func (c *Conn) Emit(msg *Message) {
-	if room, ok := Hub.GetRoom(msg.Room); ok {
-		room.Emit(c, msg)
-	}
-}
-
-func NewConnection(w http.ResponseWriter, r *http.Request, cookie map[string]string) *Conn {
+func NewConnection(w http.ResponseWriter, r *http.Request, claims map[string]string) *Conn {
 	socket, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return nil
 	}
 	id, err := uuid.NewRandom()
 	if err != nil {
+		socket.Close()
 		return nil
 	}
 	return &Conn{
-		Socket: socket,
 		ID:     id.String(),
+		Socket: socket,
 		Send:   make(chan []byte, 256),
-		Rooms:  make(map[string]struct{}),
-        Cookie: cookie,
+		Claims: claims,
 	}
 }
 
@@ -211,21 +186,23 @@ func SocketHandler(authFn Authorize) http.HandlerFunc {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-        var cookie map[string]string
-        if authFn != nil {
-            var err error
-            cookie, err = authFn(r)
-            if err != nil {
-                http.Error(w, "Unauthorized", http.StatusUnauthorized)
-                return
-            }
-        }
-		c := NewConnection(w, r, cookie)
-		if c != nil {
-            Hub.AddConn(c)
-			go c.writePump()
-			c.Join("root")
-			go c.readPump()
+		var claims map[string]string
+		if authFn != nil {
+			var err error
+			claims, err = authFn(r)
+			if err != nil {
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
 		}
+		c := NewConnection(w, r, claims)
+		if c == nil {
+			return
+		}
+		Hub.AddConn(c)
+		go c.writePump()
+		go c.readPump()
+		Hub.JoinRoom("root", c)
 	}
 }
+

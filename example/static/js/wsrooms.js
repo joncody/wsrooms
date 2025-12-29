@@ -5,7 +5,7 @@ import emitter from "./emitter.js";
 
 const decoder = new TextDecoder("utf-8");
 const rooms = {};
-const reserved = ["open", "close", "joined", "join", "leave", "left"];
+const reserved = ["open", "close", "join", "join_ack", "leave", "leave_ack", "new_member", "member_left"];
 let socket;
 
 function buildMessage(room, event, dst, src, payload) {
@@ -40,7 +40,7 @@ function getRoom(name) {
     const room = emitter();
     const members = [];
     let open = false;
-    let roomID = "";
+    let id = "";
 
     if (typeof name !== "string") {
         throw new TypeError("Room name must be a string");
@@ -63,7 +63,7 @@ function getRoom(name) {
     };
 
     room.id = function () {
-        return roomID;
+        return id;
     };
 
     room.send = function (event, payload, dst) {
@@ -76,7 +76,7 @@ function getRoom(name) {
         if (reserved.includes(event)) {
             throw new Error("Reserved event: " + event);
         }
-        socket.send(buildMessage(name, event, dst, roomID, payload));
+        socket.send(buildMessage(name, event, dst, id, payload));
         return room;
     };
 
@@ -86,9 +86,6 @@ function getRoom(name) {
         }
         if (typeof roomname !== "string") {
             throw new TypeError("Room name must be a string.");
-        }
-        if (roomname === "root") {
-            return rooms.root;
         }
         return (
             rooms.hasOwnProperty(roomname)
@@ -101,44 +98,41 @@ function getRoom(name) {
         if (!open) {
             throw new Error("Cannot leave: room is closed.");
         }
-        socket.send(buildMessage(name, "leave", roomID, roomID, ""));
+        socket.send(buildMessage(name, "leave", id, id, id));
         return room;
     };
 
     room.parse = function (packet) {
-        let index;
+        let payload;
 
         switch (packet.event) {
-        case "join":
-            roomID = packet.src;
+        case "join_ack":
+            id = packet.src;
             members.length = 0;
             members.push(...JSON.parse(decoder.decode(packet.payload)));
             open = true;
             room.emit("open");
-            socket.send(buildMessage(name, "joined", "", roomID, roomID));
             break;
-        case "joined":
-            packet.payload = decoder.decode(packet.payload);
-            index = members.indexOf(packet.payload);
-            if (index === -1) {
-                members.push(packet.payload);
-                room.emit("joined", packet.payload);
+        case "new_member":
+            payload = decoder.decode(packet.payload);
+            if (!members.includes(payload)) {
+                members.push(payload);
+                room.emit("new_member", payload);
             }
             break;
-        case "leave":
-            socket.send(buildMessage(name, "left", "", roomID, roomID));
+        case "leave_ack":
             room.emit("close");
             open = false;
             members.length = 0;
-            roomID = "";
+            id = "";
             delete rooms[name];
             break;
-        case "left":
-            packet.payload = decoder.decode(packet.payload);
-            index = members.indexOf(packet.payload);
-            if (index !== -1) {
+        case "member_left":
+            payload = decoder.decode(packet.payload);
+            if (members.includes(payload)) {
+                const index = members.indexOf(payload);
                 members.splice(index, 1);
-                room.emit("left", packet.payload);
+                room.emit("member_left", payload);
             }
             break;
         default:
@@ -157,7 +151,7 @@ function getRoom(name) {
     rooms[name] = room;
 
     if (name !== "root") {
-        socket.send(buildMessage(name, "join", roomID, roomID, ""));
+        socket.send(buildMessage(name, "join", id, id, id));
     } else {
         room.purge = function () {
             Object.keys(rooms).forEach(function (name) {

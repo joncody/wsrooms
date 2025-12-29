@@ -2,6 +2,7 @@ package main
 
 import (
 	"html/template"
+	"log"
 	"net/http"
 
 	"github.com/joncody/wsrooms"
@@ -21,11 +22,15 @@ func staticHandler(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, r.URL.Path[1:])
 }
 
+func helloHandler(c *wsrooms.Conn, msg *wsrooms.Message) error {
+	c.SendToRoom(msg.Room, msg.Event, msg.Payload)
+	return nil
+}
+
 func main() {
-	wsrooms.Emitter.On("hello", func(c *wsrooms.Conn, msg *wsrooms.Message) {
-		c.Emit(msg)
-		// c.Send <- msg.Bytes()
-	})
+	if err := wsrooms.RegisterHandler("hello", helloHandler); err != nil {
+		log.Fatal("Failed to register handler:", err)
+	}
 	http.HandleFunc("/", handler)
 	http.HandleFunc("/static/", staticHandler)
 	http.HandleFunc("/ws", wsrooms.SocketHandler(nil))
