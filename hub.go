@@ -67,13 +67,15 @@ func (m *manager) leaveRoom(name string, c *Conn) {
 // leaveAllRooms removes a connection from all rooms
 func (m *manager) leaveAllRooms(c *Conn) {
 	m.mu.RLock()
-	rooms := make([]*room, 0, len(m.rooms))
-	for _, r := range m.rooms {
-		rooms = append(rooms, r)
+	roomNames := make([]string, 0, len(m.rooms))
+	for name := range m.rooms {
+		roomNames = append(roomNames, name)
 	}
 	m.mu.RUnlock()
-	for _, r := range rooms {
-		r.leave(c)
+	for _, name := range roomNames {
+		if room, ok := m.getRoom(name); ok {
+			room.leave(c)
+		}
 	}
 }
 

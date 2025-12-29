@@ -7,12 +7,15 @@ A lightweight, high-performance WebSocket framework for real-time applications i
 ## ✅ Key Features
 
 - 🏢 **Automatic Room Management**: Create/join/leave rooms on demand.
-- ⚡ **Efficient Binary Protocol**: Uses `bytecursor` for compact, fast message encoding.
-- 📨 **Flexible Messaging**: Broadcast to rooms or send direct messages to peers.
+- ⚡ **Efficient Binary Protocol**: Uses length-prefixed fields for compact, fast message encoding.
+- 📨 **Flexible Messaging**:
+  - Broadcast to rooms (excluding sender)
+  - Send direct messages to peers
+  - **Send private messages to self** via `TrySend`
 - 🔒 **Concurrency-Safe**: Thread-safe rooms and hub using Go’s `sync` primitives.
-- 🧩 **Handler Registration**: Register per-event logic on the server with `Registerandler`.
+- 🧩 **Handler Registration**: Register per-event logic on the server with `RegisterHandler`.
 - 🌐 **Single Root Connection**: Clients start in a `"root"` room and dynamically join others.
-- 📦 **Minimal Dependencies**: Only `gorilla/websocket` (Go) and `bytecursor`/`emitter` (JS).
+- 📦 **Minimal Dependencies**: Only `gorilla/websocket` (Go) and standard JS.
 
 ---
 
@@ -26,8 +29,8 @@ go get github.com/joncody/wsrooms
 ### JavaScript Client
 Include these files in your frontend:
 - `wsrooms.js`
-- `bytecursor.js`
-- `emitter.js`
+- `bytecursor.js` (for binary parsing)
+- `emitter.js` (optional, if using event emitter pattern)
 
 ```js
 import wsrooms from './wsrooms.js';
@@ -49,9 +52,10 @@ import (
 
 func main() {
 	// Register custom event handler
-	err := wsrooms.RegisterHandler("chat", func(c *wsrooms.Conn, msg *wsrooms.Message) error {
-		// Re-broadcast to the message's room
-		c.SendToRoom(msg.Room, "chat", msg.Payload)
+	err := wsrooms.RegisterHandler("ping", func(c *wsrooms.Conn, msg *wsrooms.Message) error {
+		// Respond directly to the sender
+		reply := wsrooms.NewMessage("util", "pong", "", c.ID, nil)
+		c.TrySend(reply.Bytes())
 		return nil
 	})
 	if err != nil {
@@ -73,13 +77,13 @@ const decoder = new TextDecoder();
 const root = wsrooms("ws://localhost:8080/ws");
 
 root.on("open", () => {
-    console.log("Joined Lobby! My ID:", root.id());
+    console.log("Connected! My ID:", root.id());
 	const lobby = root.join("lobby");
 	lobby.on("open", () => {
-		lobby.send("chat", "Hello room!");
+		lobby.send("ping", new Uint8Array());
 	});
-	lobby.on("chat", (payload, senderId) => {
-		console.log(`${senderId}: ${decoder.decode(payload)}`);
+	lobby.on("pong", (payload, senderId) => {
+		console.log("Received pong from", senderId);
 	});
 	lobby.on("new_member", (id) => {
         console.log(`User joined: ${id}`);
@@ -118,7 +122,7 @@ Use `.on(event, handler)` to listen:
 - `"member_left"` — `(memberId)` when someone leaves
 - Custom events (e.g., `"chat"`) — `(payload, senderId)`
 
-> ⚠️ Reserved event names (`join`, `leave`, etc.) cannot be used for custom messages.
+> ⚠️ Reserved event names (`join`, `leave`, `join_ack`, etc.) cannot be used for custom messages.
 
 ---
 
@@ -133,8 +137,9 @@ Use `.on(event, handler)` to listen:
 ### `*Conn` Methods
 | Method | Description |
 |--------|-------------|
-| `SendToRoom(room, event string, payload []byte)` | Broadcasts to all room members except sender. |
-| `SendToClient(dstID, event string, payload []byte)` | Sends direct message to a specific client. |
+| `SendToRoom(room, event string, payload []byte)` | Broadcasts to all room members **except sender**. |
+| `SendToClient(dstID, event string, payload []byte)` | Sends direct message to another client (uses `"root"` room internally). |
+| `TrySend(msg []byte) bool` | **Sends a message to self** (e.g., acks, replies). Non-blocking; returns `false` if client is slow/disconnected. |
 | `ID` | Unique connection UUID (read-only field). |
 | `Claims` | Map of auth claims (e.g., from JWT). |
 
@@ -161,12 +166,15 @@ Each message is a sequence of **length-prefixed** fields (big-endian `uint32`):
 Example:  
 `[4][lobby][4][chat][0][][36][abc...][11][Hello room!]`
 
+> Clients must send/receive **binary WebSocket frames**, not text.
+
 ---
 
 ## 🛡️ Concurrency & Safety
 
 - All room operations are **goroutine-safe**.
 - Connections use buffered channels + ping/pong to prevent hangs.
+- **Non-blocking sends**: `TrySend` and internal messaging never block.
 - Rooms auto-clean when empty.
 - Malformed or oversized messages are dropped.
 

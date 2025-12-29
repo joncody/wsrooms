@@ -1,7 +1,7 @@
 package wsrooms
 
 import (
-	"fmt"
+	"encoding/json"
 	"log"
 	"net/http"
 	"sync"
@@ -10,9 +10,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
-
-type MessageHandler func(c *Conn, msg *Message) error
-type Authorize func(*http.Request) (map[string]string, error)
 
 type Conn struct {
 	ID          string
@@ -30,30 +27,22 @@ const (
 )
 
 var (
-	messageHandlersMu sync.RWMutex
-	messageHandlers   = make(map[string]MessageHandler)
-	upgrader          = websocket.Upgrader{
+	upgrader = websocket.Upgrader{
 		ReadBufferSize:  4096,
 		WriteBufferSize: 4096,
 		CheckOrigin:     func(r *http.Request) bool { return true },
 	}
 )
 
-// RegisterHandler registers a custom event handler
-func RegisterHandler(event string, handler MessageHandler) error {
-	if event == "" {
-		return fmt.Errorf("event name cannot be empty")
+func (c *Conn) TrySend(msg []byte) bool {
+	select {
+	case c.send <- msg:
+		return true
+	default:
+		log.Printf("Conn %s: droppe message (slow or closed)", c.ID)
+		c.cleanup()
+		return false
 	}
-	if handler == nil {
-		return fmt.Errorf("handler cannot be nil")
-	}
-	messageHandlersMu.Lock()
-	defer messageHandlersMu.Unlock()
-	if _, exists := messageHandlers[event]; exists {
-		return fmt.Errorf("handler for event %q already registered", event)
-	}
-	messageHandlers[event] = handler
-	return nil
 }
 
 func (c *Conn) SendToRoom(roomName, event string, payload []byte) {
@@ -66,30 +55,36 @@ func (c *Conn) SendToRoom(roomName, event string, payload []byte) {
 func (c *Conn) SendToClient(dstID, event string, payload []byte) {
 	msg := NewMessage("root", event, dstID, c.ID, payload)
 	if dst, ok := hub.getConn(dstID); ok {
-		dst.send <- msg.Bytes()
+		dst.TrySend(msg.Bytes())
 	}
 }
 
-func (c *Conn) handleData(msg *Message) {
+func (c *Conn) dispatch(msg *Message) {
 	switch msg.Event {
 	case "join":
 		hub.joinRoom(msg.Room, c)
+		members := []byte("[]") // or fetch real snapshot if needed
+		if room, ok := hub.getRoom(msg.Room); ok {
+			if snap, err := json.Marshal(room.snapshot()); err == nil {
+				members = snap
+			}
+		}
+		ack := NewMessage(msg.Room, "join_ack", "", c.ID, members).Bytes()
+		if !c.TrySend(ack) {
+			return
+		}
 	case "leave":
+		ack := NewMessage(msg.Room, "leave_ack", "", c.ID, []byte(c.ID)).Bytes()
+		c.TrySend(ack)
 		hub.leaveRoom(msg.Room, c)
 	default:
 		if msg.Dst != "" {
 			if dst, ok := hub.getConn(msg.Dst); ok {
-				dst.send <- msg.Bytes()
+				dst.TrySend(msg.Bytes())
 			}
 			return
 		}
-		var handler MessageHandler
-		messageHandlersMu.RLock()
-		if h, exists := messageHandlers[msg.Event]; exists {
-			handler = h
-		}
-		messageHandlersMu.RUnlock()
-		if handler != nil {
+		if handler := getHandler(msg.Event); handler != nil {
 			if err := handler(c, msg); err != nil {
 				log.Printf("Handler error for event %q from conn %s: %v", msg.Event, c.ID, err)
 			}
@@ -128,7 +123,7 @@ func (c *Conn) readPump() {
 			log.Printf("Conn %s: malformed message", c.ID)
 			break
 		}
-		c.handleData(msg)
+		c.dispatch(msg)
 	}
 }
 
@@ -176,31 +171,5 @@ func newConnection(w http.ResponseWriter, r *http.Request, claims map[string]str
 		Claims: claims,
 		socket: sock,
 		send:   make(chan []byte, 256),
-	}
-}
-
-func SocketHandler(authFn Authorize) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		var claims map[string]string
-		if authFn != nil {
-			var err error
-			claims, err = authFn(r)
-			if err != nil {
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
-				return
-			}
-		}
-		c := newConnection(w, r, claims)
-		if c == nil {
-			return
-		}
-		hub.addConn(c)
-		go c.writePump()
-		go c.readPump()
-		hub.joinRoom("root", c)
 	}
 }

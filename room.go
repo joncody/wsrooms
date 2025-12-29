@@ -1,8 +1,6 @@
 package wsrooms
 
 import (
-	"encoding/json"
-	"log"
 	"sync"
 )
 
@@ -57,13 +55,7 @@ func (r *room) broadcast(msg *roomMessage) {
 	}
 	r.mu.Unlock()
 	for _, c := range members {
-		select {
-		case c.send <- msg.data:
-		default:
-			log.Printf("room %s: member %s is slow or disconnected, removing", r.Name, c.ID)
-			r.leave(c)
-			c.cleanup()
-		}
+		c.TrySend(msg.data)
 	}
 }
 
@@ -71,12 +63,6 @@ func (r *room) handleJoin(c *Conn) {
 	r.mu.Lock()
 	r.members[c.ID] = c
 	r.mu.Unlock()
-	members, err := json.Marshal(r.snapshot())
-	if err != nil {
-		log.Println("Error marshalling room members:", err)
-		return
-	}
-	c.send <- NewMessage(r.Name, "join_ack", "", c.ID, members).Bytes()
 	r.emit(c, NewMessage(r.Name, "new_member", "", "", []byte(c.ID)))
 }
 
@@ -85,7 +71,6 @@ func (r *room) handleLeave(c *Conn) {
 	delete(r.members, c.ID)
 	empty := len(r.members) == 0
 	r.mu.Unlock()
-	c.send <- NewMessage(r.Name, "leave_ack", "", c.ID, []byte(c.ID)).Bytes()
 	r.emit(c, NewMessage(r.Name, "member_left", "", "", []byte(c.ID)))
 	if empty {
 		r.stopOnce.Do(func() {
