@@ -7,7 +7,10 @@ import (
 	"sync"
 )
 
+// Authorize is a function that extracts authenticated claims from an HTTP request.
 type Authorize func(*http.Request) (map[string]string, error)
+
+// MessageHandler processes a custom event message from a connection.
 type MessageHandler func(c *Conn, msg *Message) error
 
 var (
@@ -15,7 +18,7 @@ var (
 	messageHandlers   = make(map[string]MessageHandler)
 )
 
-// RegisterHandler registers a custom event handler
+// RegisterHandler registers a custom event handler for a given event name.
 func RegisterHandler(event string, handler MessageHandler) error {
 	if event == "" {
 		return fmt.Errorf("event name cannot be empty")
@@ -32,13 +35,14 @@ func RegisterHandler(event string, handler MessageHandler) error {
 	return nil
 }
 
-// getHandler returns a handler for an event, if any
+// getHandler returns the registered handler for an event, if any.
 func getHandler(event string) MessageHandler {
 	messageHandlersMu.RLock()
 	defer messageHandlersMu.RUnlock()
 	return messageHandlers[event]
 }
 
+// SocketHandler returns an HTTP handler that upgrades to WebSocket and manages the connection lifecycle.
 func SocketHandler(authFn Authorize) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "GET" {

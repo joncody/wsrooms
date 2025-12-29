@@ -11,22 +11,24 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// Conn represents a single WebSocket connection with metadata and messaging channels.
 type Conn struct {
 	ID          string
-	Claims      map[string]string
-	send        chan []byte
+	Claims      map[string]string // Authenticated claims (e.g., user ID, roles)
+	send        chan []byte       // Outbound message queue
 	socket      *websocket.Conn
-	cleanupOnce sync.Once
+	cleanupOnce sync.Once         // Ensures cleanup happens only once
 }
 
 const (
-	writeWait      = 10 * time.Second
-	pongWait       = 60 * time.Second
-	pingPeriod     = pongWait * 9 / 10
-	maxMessageSize = 65536
+	writeWait      = 10 * time.Second // Time allowed to write a message to the peer
+	pongWait       = 60 * time.Second // Time allowed to read next pong before idle timeout
+	pingPeriod     = pongWait * 9 / 10 // Send pings to peer with this period
+	maxMessageSize = 65536            // Maximum message size allowed from peer
 )
 
 var (
+	// upgrader configures the WebSocket handshake with permissive origin policy.
 	upgrader = websocket.Upgrader{
 		ReadBufferSize:  4096,
 		WriteBufferSize: 4096,
@@ -34,6 +36,7 @@ var (
 	}
 )
 
+// TrySend attempts to send a message; drops it if the send buffer is full or closed.
 func (c *Conn) TrySend(msg []byte) bool {
 	select {
 	case c.send <- msg:
@@ -45,6 +48,7 @@ func (c *Conn) TrySend(msg []byte) bool {
 	}
 }
 
+// SendToRoom broadcasts a message to all members of the specified room.
 func (c *Conn) SendToRoom(roomName, event string, payload []byte) {
 	msg := NewMessage(roomName, event, "", c.ID, payload)
 	if room, ok := hub.getRoom(roomName); ok {
@@ -52,6 +56,7 @@ func (c *Conn) SendToRoom(roomName, event string, payload []byte) {
 	}
 }
 
+// SendToClient sends a direct message to another client by ID.
 func (c *Conn) SendToClient(dstID, event string, payload []byte) {
 	msg := NewMessage("root", event, dstID, c.ID, payload)
 	if dst, ok := hub.getConn(dstID); ok {
@@ -59,6 +64,7 @@ func (c *Conn) SendToClient(dstID, event string, payload []byte) {
 	}
 }
 
+// dispatch routes an incoming message to appropriate handlers or rooms.
 func (c *Conn) dispatch(msg *Message) {
 	switch msg.Event {
 	case "join":
@@ -96,6 +102,7 @@ func (c *Conn) dispatch(msg *Message) {
 	}
 }
 
+// cleanup safely removes the connection from all rooms and closes resources.
 func (c *Conn) cleanup() {
 	c.cleanupOnce.Do(func() {
 		hub.leaveAllRooms(c)
@@ -105,6 +112,7 @@ func (c *Conn) cleanup() {
 	})
 }
 
+// readPump reads messages from the WebSocket and dispatches them.
 func (c *Conn) readPump() {
 	defer c.cleanup()
 	c.socket.SetReadLimit(maxMessageSize)
@@ -127,11 +135,13 @@ func (c *Conn) readPump() {
 	}
 }
 
+// write writes a message with a specified WebSocket message type and deadline.
 func (c *Conn) write(mt int, payload []byte) error {
 	c.socket.SetWriteDeadline(time.Now().Add(writeWait))
 	return c.socket.WriteMessage(mt, payload)
 }
 
+// writePump sends messages from the send channel and periodic pings.
 func (c *Conn) writePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
@@ -156,6 +166,7 @@ func (c *Conn) writePump() {
 	}
 }
 
+// newConnection upgrades an HTTP request to a WebSocket and initializes a Conn.
 func newConnection(w http.ResponseWriter, r *http.Request, claims map[string]string) *Conn {
 	sock, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {

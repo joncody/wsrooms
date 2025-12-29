@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 )
 
-// Message represents a length-prefixed message
+// Message represents a length-prefixed binary message for efficient parsing.
 type Message struct {
 	RoomLength    int
 	Room          string
@@ -19,7 +19,7 @@ type Message struct {
 	Payload       []byte
 }
 
-// readString reads a length-prefixed string from a buffer
+// readString reads a 4-byte big-endian length-prefixed string from buffer.
 func readString(buf *bytes.Buffer) (string, int) {
 	if buf.Len() < 4 {
 		return "", 0
@@ -31,7 +31,7 @@ func readString(buf *bytes.Buffer) (string, int) {
 	return string(buf.Next(length)), length
 }
 
-// readPayload reads a length-prefixed byte slice from a buffer
+// readPayload reads a 4-byte big-endian length-prefixed byte slice from buffer.
 func readPayload(buf *bytes.Buffer) ([]byte, int) {
 	if buf.Len() < 4 {
 		return nil, 0
@@ -43,7 +43,7 @@ func readPayload(buf *bytes.Buffer) ([]byte, int) {
 	return buf.Next(length), length
 }
 
-// BytesToMessage decodes bytes into a Message
+// BytesToMessage decodes raw bytes into a Message (returns nil on malformed input).
 func BytesToMessage(data []byte) *Message {
 	if len(data) < 24 {
 		return nil
@@ -58,7 +58,7 @@ func BytesToMessage(data []byte) *Message {
 	return msg
 }
 
-// Bytes serializes a Message into bytes
+// Bytes serializes the Message into a binary format with length prefixes.
 func (msg *Message) Bytes() []byte {
 	buf := bytes.NewBuffer([]byte{})
 	binary.Write(buf, binary.BigEndian, uint32(msg.RoomLength))
@@ -74,7 +74,7 @@ func (msg *Message) Bytes() []byte {
 	return buf.Bytes()
 }
 
-// NewMessage builds a new Message
+// NewMessage builds a new Message with computed length fields.
 func NewMessage(room, event, dst, src string, payload []byte) *Message {
 	return &Message{
 		RoomLength:    len(room),

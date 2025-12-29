@@ -4,37 +4,40 @@ import (
 	"sync"
 )
 
+// roomMessage wraps a message with its sender for room broadcasting.
 type roomMessage struct {
 	sender *Conn
 	data   []byte
 }
 
+// room manages a group of connections with concurrent-safe operations.
 type room struct {
 	Name       string
 	members    map[string]*Conn
-	register   chan *Conn
-	unregister chan *Conn
-	send       chan *roomMessage
-	stop       chan struct{}
-	stopOnce   sync.Once
-	mu         sync.Mutex
+	register   chan *Conn        // Channel to join the room
+	unregister chan *Conn        // Channel to leave the room
+	send       chan *roomMessage // Channel to broadcast messages
+	stop       chan struct{}     // Signal to terminate room if empty
+	stopOnce   sync.Once         // Ensures stop is only closed once
+	mu         sync.Mutex        // Protects member list
 }
 
-// Join queues a connection to join
+// join queues a connection to join the room.
 func (r *room) join(c *Conn) {
 	r.register <- c
 }
 
-// Leave queues a connection to leave
+// leave queues a connection to leave the room.
 func (r *room) leave(c *Conn) {
 	r.unregister <- c
 }
 
-// Emit queues a message to all room members
+// emit queues a message to be broadcast to all room members (except sender).
 func (r *room) emit(c *Conn, msg *Message) {
 	r.send <- &roomMessage{c, msg.Bytes()}
 }
 
+// snapshot returns a copy of current member IDs (for join_ack responses).
 func (r *room) snapshot() []string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -45,6 +48,7 @@ func (r *room) snapshot() []string {
 	return ids
 }
 
+// broadcast sends a message to all room members except the sender.
 func (r *room) broadcast(msg *roomMessage) {
 	r.mu.Lock()
 	members := make([]*Conn, 0, len(r.members))
@@ -59,6 +63,7 @@ func (r *room) broadcast(msg *roomMessage) {
 	}
 }
 
+// handleJoin adds a connection to the room and notifies others of new member.
 func (r *room) handleJoin(c *Conn) {
 	r.mu.Lock()
 	r.members[c.ID] = c
@@ -66,6 +71,7 @@ func (r *room) handleJoin(c *Conn) {
 	r.emit(c, NewMessage(r.Name, "new_member", "", "", []byte(c.ID)))
 }
 
+// handleLeave removes a connection and notifies others; stops room if empty.
 func (r *room) handleLeave(c *Conn) {
 	r.mu.Lock()
 	delete(r.members, c.ID)
@@ -79,6 +85,7 @@ func (r *room) handleLeave(c *Conn) {
 	}
 }
 
+// run is the room's main event loop processing register/unregister/send/stop.
 func (r *room) run() {
 	for {
 		select {
@@ -95,7 +102,7 @@ func (r *room) run() {
 	}
 }
 
-// newRoom creates and runs a new room
+// newRoom creates and starts a new room.
 func newRoom(name string) *room {
 	r := &room{
 		Name:       name,
