@@ -190,6 +190,7 @@ func SocketHandler(authFn Authorize) http.HandlerFunc {
 		if authFn != nil {
 			var err error
 			claims, err = authFn(r)
+            log.Println(claims, err)
 			if err != nil {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
