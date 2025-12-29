@@ -15,13 +15,6 @@ var hub = &manager{
 	conns: make(map[string]*Conn),
 }
 
-// getRoom returns a room by name, if it exists.
-func (m *manager) getRoom(name string) (*room, bool) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	r, ok := m.rooms[name]
-	return r, ok
-}
 
 // getConn returns a connection by ID, if it exists.
 func (m *manager) getConn(id string) (*Conn, bool) {
@@ -43,6 +36,21 @@ func (m *manager) removeConn(id string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	delete(m.conns, id)
+}
+
+// getRoom returns a room by name, if it exists.
+func (m *manager) getRoom(name string) (*room, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	r, ok := m.rooms[name]
+	return r, ok
+}
+
+// removeRoom deletes a room from the hub (called when room becomes empty).
+func (m *manager) removeRoom(name string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.rooms, name)
 }
 
 // joinRoom adds a connection to a room, creating the room if needed.
@@ -77,11 +85,4 @@ func (m *manager) leaveAllRooms(c *Conn) {
 			room.leave(c)
 		}
 	}
-}
-
-// removeRoom deletes a room from the hub (called when room becomes empty).
-func (m *manager) removeRoom(name string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	delete(m.rooms, name)
 }

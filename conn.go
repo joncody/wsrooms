@@ -76,13 +76,11 @@ func (c *Conn) dispatch(msg *Message) {
 			}
 		}
 		ack := NewMessage(msg.Room, "join_ack", "", c.ID, members).Bytes()
-		if !c.TrySend(ack) {
-			return
-		}
+        c.TrySend(ack)
 	case "leave":
+		hub.leaveRoom(msg.Room, c)
 		ack := NewMessage(msg.Room, "leave_ack", "", c.ID, []byte(c.ID)).Bytes()
 		c.TrySend(ack)
-		hub.leaveRoom(msg.Room, c)
 	default:
 		if msg.Dst != "" {
 			if dst, ok := hub.getConn(msg.Dst); ok {
