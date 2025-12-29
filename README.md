@@ -141,7 +141,7 @@ Use `.on(event, handler)` to listen:
 ### Message Utilities
 | Function | Description |
 |--------|-------------|
-| `ConstructMessage(room, event, dst, src string, payload []byte) *Message` | Builds a message struct. |
+| `NewMessage(room, event, dst, src string, payload []byte) *Message` | Builds a message struct. |
 | `BytesToMessage([]byte) *Message` | Decodes binary message (used internally). |
 
 > The server **automatically** handles `"join"`/`"leave"` events. Custom events are routed to registered handlers or broadcast if unhandled.

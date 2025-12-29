@@ -12,15 +12,15 @@ import (
 )
 
 type MessageHandler func(c *Conn, msg *Message) error
+type Authorize func(*http.Request) (map[string]string, error)
 
 type Conn struct {
-	Socket *websocket.Conn
 	ID     string
-	Send   chan []byte
 	Claims map[string]string
+	send   chan []byte
+	socket *websocket.Conn
+    cleanupOnce sync.Once
 }
-
-type Authorize func(*http.Request) (map[string]string, error)
 
 const (
 	writeWait      = 10 * time.Second
@@ -57,31 +57,31 @@ func RegisterHandler(event string, handler MessageHandler) error {
 }
 
 func (c *Conn) SendToRoom(roomName, event string, payload []byte) {
-	msg := ConstructMessage(roomName, event, "", c.ID, payload)
-	if room, ok := Hub.GetRoom(roomName); ok {
-		room.Emit(c, msg)
+	msg := NewMessage(roomName, event, "", c.ID, payload)
+	if room, ok := hub.getRoom(roomName); ok {
+		room.emit(c, msg)
 	}
 }
 
 func (c *Conn) SendToClient(dstID, event string, payload []byte) {
-	msg := ConstructMessage("", event, dstID, c.ID, payload)
-	if dst, ok := Hub.GetConn(dstID); ok {
-		dst.Send <- msg.Bytes()
+	msg := NewMessage("", event, dstID, c.ID, payload)
+	if dst, ok := hub.getConn(dstID); ok {
+		dst.send <- msg.Bytes()
 	}
 }
 
-func (c *Conn) HandleData(msg *Message) {
+func (c *Conn) handleData(msg *Message) {
 	switch msg.Event {
 	case "join":
-		Hub.JoinRoom(msg.Room, c)
+		hub.joinRoom(msg.Room, c)
 	case "leave":
-		Hub.LeaveRoom(msg.Room, c)
+		hub.leaveRoom(msg.Room, c)
 	case "joined", "left":
 		return
 	default:
 		if msg.Dst != "" {
-			if dst, ok := Hub.GetConn(msg.Dst); ok {
-				dst.Send <- msg.Bytes()
+			if dst, ok := hub.getConn(msg.Dst); ok {
+				dst.send <- msg.Bytes()
 			}
 			return
 		}
@@ -97,30 +97,31 @@ func (c *Conn) HandleData(msg *Message) {
 			}
 			return
 		}
-		if room, ok := Hub.GetRoom(msg.Room); ok {
-			room.Emit(c, msg)
+		if room, ok := hub.getRoom(msg.Room); ok {
+			room.emit(c, msg)
 		}
 	}
 }
 
 func (c *Conn) cleanup() {
-	for _, room := range Hub.rooms {
-		room.Leave(c)
-	}
-	Hub.RemoveConn(c.ID)
-	c.Socket.Close()
+    c.cleanupOnce.Do(func() {
+        hub.leaveAllRooms(c)
+        hub.removeConn(c.ID)
+        c.socket.Close()
+        close(c.send)
+    })
 }
 
 func (c *Conn) readPump() {
 	defer c.cleanup()
-	c.Socket.SetReadLimit(maxMessageSize)
-	c.Socket.SetReadDeadline(time.Now().Add(pongWait))
-	c.Socket.SetPongHandler(func(string) error {
-		c.Socket.SetReadDeadline(time.Now().Add(pongWait))
+	c.socket.SetReadLimit(maxMessageSize)
+	c.socket.SetReadDeadline(time.Now().Add(pongWait))
+	c.socket.SetPongHandler(func(string) error {
+		c.socket.SetReadDeadline(time.Now().Add(pongWait))
 		return nil
 	})
 	for {
-		_, data, err := c.Socket.ReadMessage()
+		_, data, err := c.socket.ReadMessage()
 		if err != nil {
 			break
 		}
@@ -129,24 +130,24 @@ func (c *Conn) readPump() {
 			log.Printf("Conn %s: malformed message", c.ID)
 			break
 		}
-		c.HandleData(msg)
+		c.handleData(msg)
 	}
 }
 
 func (c *Conn) write(mt int, payload []byte) error {
-	c.Socket.SetWriteDeadline(time.Now().Add(writeWait))
-	return c.Socket.WriteMessage(mt, payload)
+	c.socket.SetWriteDeadline(time.Now().Add(writeWait))
+	return c.socket.WriteMessage(mt, payload)
 }
 
 func (c *Conn) writePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
-		c.Socket.Close()
+        c.cleanup()
 	}()
 	for {
 		select {
-		case msg, ok := <-c.Send:
+		case msg, ok := <-c.send:
 			if !ok {
 				c.write(websocket.CloseMessage, []byte{})
 				return
@@ -162,21 +163,21 @@ func (c *Conn) writePump() {
 	}
 }
 
-func NewConnection(w http.ResponseWriter, r *http.Request, claims map[string]string) *Conn {
-	socket, err := upgrader.Upgrade(w, r, nil)
+func newConnection(w http.ResponseWriter, r *http.Request, claims map[string]string) *Conn {
+	sock, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return nil
 	}
 	id, err := uuid.NewRandom()
 	if err != nil {
-		socket.Close()
+		sock.Close()
 		return nil
 	}
 	return &Conn{
 		ID:     id.String(),
-		Socket: socket,
-		Send:   make(chan []byte, 256),
 		Claims: claims,
+		socket: sock,
+		send:   make(chan []byte, 256),
 	}
 }
 
@@ -195,14 +196,14 @@ func SocketHandler(authFn Authorize) http.HandlerFunc {
 				return
 			}
 		}
-		c := NewConnection(w, r, claims)
+		c := newConnection(w, r, claims)
 		if c == nil {
 			return
 		}
-		Hub.AddConn(c)
+		hub.addConn(c)
 		go c.writePump()
 		go c.readPump()
-		Hub.JoinRoom("root", c)
+		hub.joinRoom("root", c)
 	}
 }
 

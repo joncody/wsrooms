@@ -74,8 +74,8 @@ func (msg *Message) Bytes() []byte {
 	return buf.Bytes()
 }
 
-// ConstructMessage builds a new Message
-func ConstructMessage(room, event, dst, src string, payload []byte) *Message {
+// NewMessage builds a new Message
+func NewMessage(room, event, dst, src string, payload []byte) *Message {
 	return &Message{
 		RoomLength:    len(room),
 		Room:          room,
