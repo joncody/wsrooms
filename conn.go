@@ -42,7 +42,7 @@ func (c *Conn) TrySend(msg []byte) bool {
 	case c.send <- msg:
 		return true
 	default:
-		log.Printf("Conn %s: droppe message (slow or closed)", c.ID)
+		log.Printf("Conn %s: dropped message (slow or closed)", c.ID)
 		c.cleanup()
 		return false
 	}
@@ -124,12 +124,12 @@ func (c *Conn) readPump() {
 	for {
 		_, data, err := c.socket.ReadMessage()
 		if err != nil {
-			break
+			return
 		}
 		msg := BytesToMessage(data)
 		if msg == nil {
 			log.Printf("Conn %s: malformed message", c.ID)
-			break
+			return
 		}
 		c.dispatch(msg)
 	}
