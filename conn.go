@@ -76,8 +76,6 @@ func (c *Conn) handleData(msg *Message) {
 		hub.joinRoom(msg.Room, c)
 	case "leave":
 		hub.leaveRoom(msg.Room, c)
-	case "joined", "left":
-		return
 	default:
 		if msg.Dst != "" {
 			if dst, ok := hub.getConn(msg.Dst); ok {
