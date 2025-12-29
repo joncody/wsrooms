@@ -65,6 +65,7 @@ func (c *Conn) SendToRoom(roomName, event string, payload []byte) {
 
 func (c *Conn) SendToClient(dstID, event string, payload []byte) {
 	msg := NewMessage("root", event, dstID, c.ID, payload)
+    log.Println(msg)
 	if dst, ok := hub.getConn(dstID); ok {
 		dst.send <- msg.Bytes()
 	}
