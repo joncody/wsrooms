@@ -89,4 +89,3 @@ func NewMessage(room, event, dst, src string, payload []byte) *Message {
 		Payload:       payload,
 	}
 }
-

@@ -15,11 +15,11 @@ type MessageHandler func(c *Conn, msg *Message) error
 type Authorize func(*http.Request) (map[string]string, error)
 
 type Conn struct {
-	ID     string
-	Claims map[string]string
-	send   chan []byte
-	socket *websocket.Conn
-    cleanupOnce sync.Once
+	ID          string
+	Claims      map[string]string
+	send        chan []byte
+	socket      *websocket.Conn
+	cleanupOnce sync.Once
 }
 
 const (
@@ -32,11 +32,11 @@ const (
 var (
 	messageHandlersMu sync.RWMutex
 	messageHandlers   = make(map[string]MessageHandler)
-    upgrader = websocket.Upgrader{
-        ReadBufferSize:  4096,
-        WriteBufferSize: 4096,
-        CheckOrigin:     func(r *http.Request) bool { return true },
-    }
+	upgrader          = websocket.Upgrader{
+		ReadBufferSize:  4096,
+		WriteBufferSize: 4096,
+		CheckOrigin:     func(r *http.Request) bool { return true },
+	}
 )
 
 // RegisterHandler registers a custom event handler
@@ -104,12 +104,12 @@ func (c *Conn) handleData(msg *Message) {
 }
 
 func (c *Conn) cleanup() {
-    c.cleanupOnce.Do(func() {
-        hub.leaveAllRooms(c)
-        hub.removeConn(c.ID)
-        c.socket.Close()
-        close(c.send)
-    })
+	c.cleanupOnce.Do(func() {
+		hub.leaveAllRooms(c)
+		hub.removeConn(c.ID)
+		c.socket.Close()
+		close(c.send)
+	})
 }
 
 func (c *Conn) readPump() {
@@ -143,7 +143,7 @@ func (c *Conn) writePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
-        c.cleanup()
+		c.cleanup()
 	}()
 	for {
 		select {
@@ -206,4 +206,3 @@ func SocketHandler(authFn Authorize) http.HandlerFunc {
 		hub.joinRoom("root", c)
 	}
 }
-

@@ -76,10 +76,10 @@ func (m *manager) leaveAllRooms(c *Conn) {
 		r.leave(c)
 	}
 }
+
 // removeRoom deletes a room from the hub
 func (m *manager) removeRoom(name string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	delete(m.rooms, name)
 }
-
