@@ -8,21 +8,15 @@ const rooms = {};
 const reserved = ["open", "close", "join", "join_ack", "leave", "leave_ack", "new_member", "member_left"];
 let socket;
 
-function buildMessage(room, event, dst, src, payload) {
-    let data;
-    let payloadlen;
-
-    if (payload === undefined) {
-        payload = "";
-    }
+function newMessage(room, event, dst, src, payload = "") {
     if (typeof dst !== "string") {
         dst = "";
     }
     if (typeof src !== "string") {
         src = "";
     }
-    payloadlen = payload.byteLength || payload.length || 0;
-    data = bytecursor(new ArrayBuffer(room.length + event.length + dst.length + src.length + payloadlen + 20));
+    const payloadlen = payload.byteLength || payload.length || 0;
+    const data = bytecursor(new ArrayBuffer(room.length + event.length + dst.length + src.length + payloadlen + 20));
     data.writeUint32(room.length).writeString(room);
     data.writeUint32(event.length).writeString(event);
     data.writeUint32(dst.length).writeString(dst);
@@ -76,7 +70,7 @@ function getRoom(name) {
         if (reserved.includes(event)) {
             throw new Error("Reserved event: " + event);
         }
-        socket.send(buildMessage(name, event, dst, id, payload));
+        socket.send(newMessage(name, event, dst, id, payload));
         return room;
     };
 
@@ -98,13 +92,12 @@ function getRoom(name) {
         if (!open) {
             throw new Error("Cannot leave: room is closed.");
         }
-        socket.send(buildMessage(name, "leave", id, id, id));
+        socket.send(newMessage(name, "leave", id, id, id));
         return room;
     };
 
     room.parse = function (packet) {
         let payload;
-
         switch (packet.event) {
         case "join_ack":
             id = packet.src;
@@ -151,7 +144,7 @@ function getRoom(name) {
     rooms[name] = room;
 
     if (name !== "root") {
-        socket.send(buildMessage(name, "join", id, id, id));
+        socket.send(newMessage(name, "join", id, id, id));
     } else {
         room.purge = function () {
             Object.keys(rooms).forEach(function (name) {
@@ -167,19 +160,15 @@ function getRoom(name) {
             return JSON.parse(JSON.stringify(rooms));
         };
     }
-
     return Object.freeze(room);
 }
 
-const wsrooms = function (url) {
-    const root = getRoom("root");
-
+const roomer = function (url) {
     if (typeof url !== "string") {
         throw new TypeError("WebSocket URL must be a string.");
     }
     socket = new WebSocket(url);
     socket.binaryType = "arraybuffer";
-
     socket.onmessage = function (e) {
         const data = bytecursor(e.data);
         const packet = {
@@ -196,18 +185,15 @@ const wsrooms = function (url) {
         }
         rooms[packet.room].parse(packet);
     };
-
     socket.onclose = function () {
         Object.values(rooms).forEach(function (room) {
             room.emit("close");
         });
     };
-
     socket.onerror = function (err) {
         console.error("WebSocket error: " + err);
     };
-
-    return root;
+    return getRoom("root");
 };
 
-export default Object.freeze(wsrooms);
+export default Object.freeze(roomer);

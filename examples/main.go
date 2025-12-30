@@ -5,7 +5,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/joncody/wsrooms"
+	"github.com/joncody/roomer"
 )
 
 var index = template.Must(template.ParseFiles("index.html"))
@@ -22,17 +22,17 @@ func staticHandler(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, r.URL.Path[1:])
 }
 
-func helloHandler(c *wsrooms.Conn, msg *wsrooms.Message) error {
+func helloHandler(c *roomer.Conn, msg *roomer.Message) error {
 	c.SendToRoom(msg.Room, msg.Event, msg.Payload)
 	return nil
 }
 
 func main() {
-	if err := wsrooms.RegisterHandler("hello", helloHandler); err != nil {
+	if err := roomer.RegisterHandler("hello", helloHandler); err != nil {
 		log.Fatal("Failed to register handler:", err)
 	}
 	http.HandleFunc("/", handler)
 	http.HandleFunc("/static/", staticHandler)
-	http.HandleFunc("/ws", wsrooms.SocketHandler(nil))
+	http.HandleFunc("/ws", roomer.SocketHandler(nil))
 	http.ListenAndServe(":8080", nil)
 }

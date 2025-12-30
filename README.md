@@ -1,6 +1,6 @@
-# `wsrooms` – Room-Based WebSocket Framework
+# `roomer` – Room-Based WebSocket Framework
 
-A lightweight, high-performance WebSocket framework for real-time applications in Go (server) and JavaScript (client). Built around **rooms**, **binary framing**, and **explicit message routing**, `wsrooms` handles connection lifecycle, room membership, and concurrency so you don’t have to.
+A lightweight, high-performance WebSocket framework for real-time applications in Go (server) and JavaScript (client). Built around **rooms**, **binary framing**, and **explicit message routing**, `roomer` handles connection lifecycle, room membership, and concurrency so you don’t have to.
 
 ---
 
@@ -23,17 +23,17 @@ A lightweight, high-performance WebSocket framework for real-time applications i
 
 ### Go Server
 ```bash
-go get github.com/joncody/wsrooms
+go get github.com/joncody/roomer
 ```
 
 ### JavaScript Client
 Include these files in your frontend:
-- `wsrooms.js`
+- `roomer.js`
 - `bytecursor.js` (for binary parsing)
 - `emitter.js` (optional, if using event emitter pattern)
 
 ```js
-import wsrooms from './wsrooms.js';
+import roomer from './roomer.js';
 ```
 
 ---
@@ -47,14 +47,14 @@ package main
 import (
 	"log"
 	"net/http"
-	"github.com/joncody/wsrooms"
+	"github.com/joncody/roomer"
 )
 
 func main() {
 	// Register custom event handler
-	err := wsrooms.RegisterHandler("ping", func(c *wsrooms.Conn, msg *wsrooms.Message) error {
+	err := roomer.RegisterHandler("ping", func(c *roomer.Conn, msg *roomer.Message) error {
 		// Respond directly to the sender
-		reply := wsrooms.NewMessage("util", "pong", "", c.ID, nil)
+		reply := roomer.NewMessage("util", "pong", "", c.ID, nil)
 		c.TrySend(reply.Bytes())
 		return nil
 	})
@@ -62,7 +62,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	http.HandleFunc("/ws", wsrooms.SocketHandler(nil))
+	http.HandleFunc("/ws", roomer.SocketHandler(nil))
 	http.ListenAndServe(":8080", nil)
 }
 ```
@@ -71,10 +71,10 @@ func main() {
 ```js
 "use strict";
 
-import wsrooms from "./wsrooms.js";
+import roomer from "./roomer.js";
 
 const decoder = new TextDecoder();
-const root = wsrooms("ws://localhost:8080/ws");
+const root = roomer("ws://localhost:8080/ws");
 
 root.on("open", () => {
     console.log("Connected! My ID:", root.id());
@@ -96,11 +96,11 @@ root.on("open", () => {
 
 ---
 
-## 📚 Client API (`wsrooms.js`)
+## 📚 Client API (`roomer.js`)
 
 ### Initialization
 ```js
-const root = wsrooms("ws://...");
+const root = roomer("ws://...");
 ```
 Returns the `root` room. All other rooms are created via `.join()`.
 
@@ -126,7 +126,7 @@ Use `.on(event, handler)` to listen:
 
 ---
 
-## 📚 Server API (`wsrooms` Go package)
+## 📚 Server API (`roomer` Go package)
 
 ### Core Functions
 | Function | Description |

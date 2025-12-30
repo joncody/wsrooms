@@ -1,4 +1,4 @@
-package wsrooms
+package roomer
 
 import (
 	"sync"

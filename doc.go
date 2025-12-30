@@ -1,4 +1,4 @@
-// Package wsrooms provides a scalable, room-based WebSocket server
+// Package roomer provides a scalable, room-based WebSocket server
 // for real-time bidirectional communication between clients.
 //
 // Core Concepts
@@ -20,13 +20,13 @@
 // Usage
 //
 //   1. Register custom event handlers (optional):
-//        wsrooms.RegisterHandler("chat", func(c *wsrooms.Conn, msg *wsrooms.Message) error {
+//        roomer.RegisterHandler("chat", func(c *roomer.Conn, msg *roomer.Message) error {
 //            // Handle "chat" event
 //            return nil
 //        })
 //
 //   2. Mount the WebSocket handler with optional authentication:
-//        http.Handle("/ws", wsrooms.SocketHandler(func(r *http.Request) (map[string]string, error) {
+//        http.Handle("/ws", roomer.SocketHandler(func(r *http.Request) (map[string]string, error) {
 //            // Extract JWT claims, session, etc.
 //            return claims, nil
 //        }))
@@ -42,7 +42,7 @@
 //        - Payload ([]byte): Arbitrary binary data (commonly JSON-encoded).
 //
 //      To construct a message on the server, use NewMessage:
-//        msg := wsrooms.NewMessage(
+//        msg := roomer.NewMessage(
 //            room,    // e.g., "lobby"
 //            event,   // e.g., "chat"
 //            dst,     // e.g., "" for broadcast, or "abc123" for direct
@@ -73,9 +73,9 @@
 //            Equivalent to: NewMessage("root", event, dstID, c.ID, payload) + direct send.
 //
 //      Example:
-//        func chatHandler(c *wsrooms.Conn, msg *wsrooms.Message) error {
+//        func chatHandler(c *roomer.Conn, msg *roomer.Message) error {
 //            // Echo message back as direct reply
-//            reply := wsrooms.NewMessage(
+//            reply := roomer.NewMessage(
 //                "root", "echo", msg.Src, c.ID, []byte("ack"),
 //            )
 //            if !c.TrySend(reply.Bytes()) {
@@ -89,4 +89,4 @@
 //   - All exported APIs are safe for concurrent use.
 //   - Connections auto-cleanup on disconnect, error, or write timeout.
 //   - Empty rooms are garbage-collected automatically.
-package wsrooms
+package roomer

@@ -1,4 +1,4 @@
-module github.com/joncody/wsrooms
+module github.com/joncody/roomer
 
 go 1.23.0
 

@@ -1,9 +1,9 @@
 "use strict";
 
-import wsrooms from "./wsrooms.js";
+import roomer from "./roomer.js";
 
 const decoder = new TextDecoder();
-const root = wsrooms("ws://localhost:8080/ws");
+const root = roomer("ws://localhost:8080/ws");
 
 root.on("open", () => {
     console.log("Joined Lobby! My ID:", root.id());
