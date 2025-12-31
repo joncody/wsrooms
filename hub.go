@@ -15,7 +15,6 @@ var hub = &Hub{
 	conns: make(map[string]*Conn),
 }
 
-
 // getConn returns a connection by ID, if it exists.
 func (h *Hub) getConn(id string) (*Conn, bool) {
 	h.mu.RLock()

@@ -17,14 +17,14 @@ type Conn struct {
 	Claims      map[string]string // Authenticated claims (e.g., user ID, roles)
 	send        chan []byte       // Outbound message queue
 	socket      *websocket.Conn
-	cleanupOnce sync.Once         // Ensures cleanup happens only once
+	cleanupOnce sync.Once // Ensures cleanup happens only once
 }
 
 const (
-	writeWait      = 10 * time.Second // Time allowed to write a message to the peer
-	pongWait       = 60 * time.Second // Time allowed to read next pong before idle timeout
+	writeWait      = 10 * time.Second  // Time allowed to write a message to the peer
+	pongWait       = 60 * time.Second  // Time allowed to read next pong before idle timeout
 	pingPeriod     = pongWait * 9 / 10 // Send pings to peer with this period
-	maxMessageSize = 65536            // Maximum message size allowed from peer
+	maxMessageSize = 65536             // Maximum message size allowed from peer
 )
 
 var (
@@ -76,7 +76,7 @@ func (c *Conn) dispatch(msg *Message) {
 			}
 		}
 		ack := NewMessage(msg.Room, "join_ack", "", c.ID, members).Bytes()
-        c.TrySend(ack)
+		c.TrySend(ack)
 	case "leave":
 		hub.leaveRoom(msg.Room, c)
 		ack := NewMessage(msg.Room, "leave_ack", "", c.ID, []byte(c.ID)).Bytes()
